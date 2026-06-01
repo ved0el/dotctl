@@ -37,9 +37,13 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newInitCmd(g),
 		newApplyCmd(g),
+		newSyncCmd(g),
+		newSaveCmd(g),
 		newStatusCmd(g),
 		newAddCmd(g),
 		newDoctorCmd(g),
+		newProfileCmd(g),
+		newNewCmd(g),
 		newLinkCmd(g),
 		newUnlinkCmd(g),
 		newPkgCmd(g),

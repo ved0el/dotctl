@@ -171,3 +171,51 @@ func TestActiveToolsIncludesPackagesAndMiseKeys(t *testing.T) {
 		t.Errorf("expected git (package) and bat (mise key) active, got %v", active)
 	}
 }
+
+func TestLoadRejectsUnknownField(t *testing.T) {
+	dir := t.TempDir()
+	// typo: 'profile' instead of 'profiles' must error, not be silently ignored
+	if err := os.WriteFile(filepath.Join(dir, "machine.yaml"), []byte("profile: [base]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(dir); err == nil {
+		t.Error("expected error for unknown field 'profile'")
+	}
+}
+
+func TestValidate(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "base"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(root, []string{"base"}); err != nil {
+		t.Errorf("base should validate: %v", err)
+	}
+	if err := Validate(root, []string{"base", "nope"}); err == nil {
+		t.Error("expected error for missing profile dir")
+	}
+}
+
+func TestSaveAtomicRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	var cfg Config
+	cfg.Repo = "~/.dotfiles"
+	cfg.Profiles = []string{"base", "tools"}
+	if err := Save(dir, cfg); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !equalStrings(got.Profiles, cfg.Profiles) || got.Repo != cfg.Repo {
+		t.Errorf("round trip mismatch: %+v", got)
+	}
+	// no leftover temp files
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) == ".tmp" {
+			t.Errorf("leftover temp file: %s", e.Name())
+		}
+	}
+}

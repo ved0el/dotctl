@@ -1,6 +1,8 @@
 package main
 
 import (
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 	"github.com/ved0el/dotctl/internal/engine"
 	"github.com/ved0el/dotctl/internal/machine"
@@ -23,7 +25,7 @@ func newApplyCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return engine.Run(cmd.Context(), engine.Options{Repo: cx.Repo, Profiles: cx.Cfg.Profiles}, cx.Cfg, deps)
+			return engine.Run(cmd.Context(), engine.Options{Repo: cx.Repo, Profiles: cx.Cfg.Profiles, Overlay: filepath.Join(cx.CfgDir, "local")}, cx.Cfg, deps)
 		},
 	}
 }

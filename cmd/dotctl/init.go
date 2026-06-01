@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,6 +29,9 @@ func newInitCmd(g *globals) *cobra.Command {
 			if len(chosen) == 0 {
 				chosen = []string{machine.DefaultProfile}
 			}
+			if err := machine.Validate(filepath.Join(cx.Repo, machine.ProfilesSubdir), chosen); err != nil {
+				return err
+			}
 
 			// Persist selection on first run or when explicitly provided.
 			if !g.dryRun && (len(profiles) > 0 || len(cx.Cfg.Profiles) == 0) {
@@ -45,7 +49,7 @@ func newInitCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return engine.Run(cmd.Context(), engine.Options{Repo: cx.Repo, Profiles: chosen}, cx.Cfg, deps)
+			return engine.Run(cmd.Context(), engine.Options{Repo: cx.Repo, Profiles: chosen, Overlay: filepath.Join(cx.CfgDir, "local")}, cx.Cfg, deps)
 		},
 	}
 	cmd.Flags().StringSliceVar(&profiles, "profiles", nil, "comma-separated profiles to apply (e.g. base,develop)")

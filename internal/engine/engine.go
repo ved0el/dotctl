@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/ved0el/dotctl/internal/console"
@@ -35,6 +36,7 @@ type Deps struct {
 type Options struct {
 	Repo     string   // repo root; profiles live under <Repo>/profiles
 	Profiles []string // profiles to apply, in precedence order
+	Overlay  string   // optional machine-local overlay dir, linked last (wins on conflict)
 }
 
 // Run executes the reconcile pipeline. Package-install failures are collected
@@ -118,6 +120,16 @@ func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
 		d.Log.Step("linking profile %q", profile)
 		if err := d.Linker.Apply(filepath.Join(profileRoot, profile)); err != nil {
 			return fmt.Errorf("link profile %q: %w", profile, err)
+		}
+	}
+
+	// Machine-local overlay links last, so it wins on conflict over synced profiles.
+	if opts.Overlay != "" {
+		if _, err := os.Stat(opts.Overlay); err == nil {
+			d.Log.Step("linking local overlay")
+			if err := d.Linker.Apply(opts.Overlay); err != nil {
+				return fmt.Errorf("link overlay: %w", err)
+			}
 		}
 	}
 

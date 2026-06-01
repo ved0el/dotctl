@@ -17,17 +17,27 @@ import (
 // optional post-install hook.
 type Package struct {
 	Name        string   `yaml:"name"`
-	Brew        string   `yaml:"brew"`
-	Apt         string   `yaml:"apt"`
-	Dnf         string   `yaml:"dnf"`
-	Install     string   `yaml:"install"` // custom install command (cross-platform; bypasses brew/apt)
-	PostInstall string   `yaml:"post_install"`
-	Skip        []string `yaml:"skip"` // package managers to skip (e.g. ["apt"])
+	Brew        string   `yaml:"brew,omitempty"`
+	Apt         string   `yaml:"apt,omitempty"`
+	Dnf         string   `yaml:"dnf,omitempty"`
+	Install     string   `yaml:"install,omitempty"` // custom install command (cross-platform; bypasses brew/apt)
+	PostInstall string   `yaml:"post_install,omitempty"`
+	Skip        []string `yaml:"skip,omitempty"` // package managers to skip (e.g. ["apt"])
 }
 
 // Custom reports whether this package installs via a custom command rather than
 // the platform package manager.
 func (p Package) Custom() bool { return p.Install != "" }
+
+// MarshalYAML emits a bare string for a plain package (only Name set), matching
+// the scalar form authors write, and the mapping form only when overrides exist.
+func (p Package) MarshalYAML() (any, error) {
+	if p.Brew == "" && p.Apt == "" && p.Dnf == "" && p.Install == "" && p.PostInstall == "" && len(p.Skip) == 0 {
+		return p.Name, nil
+	}
+	type alias Package // no MarshalYAML → no recursion
+	return alias(p), nil
+}
 
 // Skipped reports whether this package should be skipped on the named manager.
 func (p Package) Skipped(manager string) bool {
@@ -111,4 +121,21 @@ func WalkProfile(profileDir string) ([]Package, error) {
 		return nil, nil
 	}
 	return pkgs, err
+}
+
+// WriteProfile writes the package list to <profileDir>/packages.yaml, replacing
+// the file. Used by `dotctl pkg add/rm` to mutate a profile's manifest.
+func WriteProfile(profileDir string, pkgs []Package) error {
+	if err := os.MkdirAll(profileDir, 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", profileDir, err)
+	}
+	data, err := yaml.Marshal(file{Packages: pkgs})
+	if err != nil {
+		return fmt.Errorf("marshal packages: %w", err)
+	}
+	path := filepath.Join(profileDir, "packages.yaml")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }

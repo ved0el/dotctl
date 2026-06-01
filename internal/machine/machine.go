@@ -3,8 +3,10 @@
 package machine
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -48,13 +50,31 @@ func Load(configDir string) (Config, error) {
 	if err != nil {
 		return cfg, fmt.Errorf("read machine config: %w", err)
 	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	// KnownFields rejects typo'd keys (e.g. `profile:` instead of `profiles:`)
+	// instead of silently ignoring them.
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	if err := dec.Decode(&cfg); err != nil && !errors.Is(err, io.EOF) {
 		return cfg, fmt.Errorf("parse machine config: %w", err)
 	}
 	return cfg, nil
 }
 
-// Save writes machine.yaml, creating configDir if needed.
+// Validate checks that every selected profile resolves to a real directory under
+// profileRoot, so a typo fails fast with a clear message instead of silently
+// doing nothing.
+func Validate(profileRoot string, profiles []string) error {
+	for _, p := range profiles {
+		dir := filepath.Join(profileRoot, p)
+		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+			return fmt.Errorf("profile %q not found at %s", p, dir)
+		}
+	}
+	return nil
+}
+
+// Save writes machine.yaml atomically (temp file + rename), creating configDir
+// if needed, so a crash mid-write can't leave a truncated config.
 func Save(configDir string, cfg Config) error {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
@@ -63,8 +83,22 @@ func Save(configDir string, cfg Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal machine config: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(configDir, configFile), data, 0o644); err != nil {
-		return fmt.Errorf("write machine config: %w", err)
+	final := filepath.Join(configDir, configFile)
+	tmp, err := os.CreateTemp(configDir, configFile+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp config: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }() // no-op once renamed
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp config: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp config: %w", err)
+	}
+	if err := os.Rename(tmpName, final); err != nil {
+		return fmt.Errorf("replace machine config: %w", err)
 	}
 	return nil
 }
