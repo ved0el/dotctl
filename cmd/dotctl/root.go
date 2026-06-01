@@ -28,6 +28,8 @@ func newRootCmd() *cobra.Command {
 		Short:         "Profile-based dotfiles & environment manager",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// Bare `dotctl` reports status (exits non-zero on drift — prompt-friendly).
+		RunE: func(cmd *cobra.Command, _ []string) error { return runStatus(cmd, g) },
 	}
 	root.PersistentFlags().BoolVarP(&g.dryRun, "dry-run", "n", false, "preview actions without making changes")
 	root.PersistentFlags().BoolVarP(&g.verbose, "verbose", "v", false, "verbose output")
@@ -35,6 +37,9 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(
 		newInitCmd(g),
 		newApplyCmd(g),
+		newStatusCmd(g),
+		newAddCmd(g),
+		newDoctorCmd(g),
 		newLinkCmd(g),
 		newUnlinkCmd(g),
 		newPkgCmd(g),

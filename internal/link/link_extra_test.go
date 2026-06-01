@@ -145,3 +145,38 @@ func TestRemoveLeafLinks(t *testing.T) {
 		t.Error("claude leaf symlink should be removed")
 	}
 }
+
+func TestStatus(t *testing.T) {
+	root := t.TempDir()
+	profileDir := filepath.Join(root, "profile")
+	home := filepath.Join(root, "home")
+	mustWrite(t, filepath.Join(profileDir, "zshrc"), "# z\n")
+	mustMkdirAll(t, home)
+	l := newLinker(t, home, false)
+
+	src := filepath.Join(profileDir, "zshrc")
+	dst := filepath.Join(home, ".zshrc")
+	p := Pair{Src: src, Dst: dst}
+
+	if got := l.Status(p); got != StateMissing {
+		t.Errorf("missing: got %v", got)
+	}
+	if err := l.Apply(profileDir); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.Status(p); got != StateLinked {
+		t.Errorf("linked: got %v", got)
+	}
+	// real file in the way → conflict
+	_ = os.Remove(dst)
+	mustWrite(t, dst, "real\n")
+	if got := l.Status(p); got != StateConflict {
+		t.Errorf("conflict: got %v", got)
+	}
+	// symlink elsewhere → wrong-target
+	_ = os.Remove(dst)
+	_ = os.Symlink(filepath.Join(home, "elsewhere"), dst)
+	if got := l.Status(p); got != StateWrongTarget {
+		t.Errorf("wrong-target: got %v", got)
+	}
+}

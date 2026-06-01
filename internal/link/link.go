@@ -45,6 +45,47 @@ func NewLinker(home string, fs FS, dryRun bool, log *console.Logger) *Linker {
 // Pair is a single source→destination symlink mapping.
 type Pair struct{ Src, Dst string }
 
+// LinkState classifies the on-disk state of a Pair's destination.
+type LinkState int
+
+const (
+	StateLinked      LinkState = iota // dst is a symlink pointing at src (correct)
+	StateMissing                      // dst does not exist
+	StateWrongTarget                  // dst is a symlink pointing elsewhere (incl. dangling)
+	StateConflict                     // dst is a real file/dir (would be backed up on apply)
+)
+
+func (s LinkState) String() string {
+	switch s {
+	case StateLinked:
+		return "linked"
+	case StateMissing:
+		return "missing"
+	case StateWrongTarget:
+		return "wrong-target"
+	default:
+		return "conflict"
+	}
+}
+
+// Status classifies a Pair's destination without modifying anything. It is the
+// read-only primitive behind `dotctl status` and `dotctl doctor`.
+func (l *Linker) Status(p Pair) LinkState {
+	fi, err := l.FS.Lstat(p.Dst)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return StateMissing
+	case err != nil:
+		return StateConflict
+	case fi.Mode()&os.ModeSymlink == 0:
+		return StateConflict
+	}
+	if target, _ := l.FS.Readlink(p.Dst); target == p.Src {
+		return StateLinked
+	}
+	return StateWrongTarget
+}
+
 // Targets returns the source→destination pairs a profile maps into $HOME. It is
 // exported so other tools (status checks, tests) can derive the expected links
 // from the repo without duplicating the convention.
