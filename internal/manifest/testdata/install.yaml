@@ -1,0 +1,4 @@
+packages:
+  - name: sheldon
+    install: "curl example.com | sh"
+    post_install: "sheldon lock"

@@ -1,0 +1,254 @@
+# ==============================================================================
+# Ripgrep Configuration - Productivity Optimized (生産性向上)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Search Behavior
+# ------------------------------------------------------------------------------
+
+# Smart case: case-insensitive if all lowercase, case-sensitive if any uppercase
+--smart-case
+
+# Follow symlinks by default
+--follow
+
+# Search hidden files and directories by default
+--hidden
+
+# Show line numbers in output
+--line-number
+
+# Show column numbers in output (useful for jumping to exact location)
+--column
+
+# Show 2 lines of context before and after each match
+--context=2
+
+# Sort results by file path (more predictable output)
+--sort=path
+
+# ------------------------------------------------------------------------------
+# Display & Output
+# ------------------------------------------------------------------------------
+
+# Use colors in output (always, even when piped)
+--colors=match:fg:red
+--colors=match:style:bold
+--colors=path:fg:cyan
+--colors=path:style:bold
+--colors=line:fg:yellow
+
+# Show heading with filename
+--heading
+
+# Add a column showing the search term (useful for complex patterns)
+--with-filename
+
+# ------------------------------------------------------------------------------
+# Performance Optimizations
+# ------------------------------------------------------------------------------
+
+# Use multiple threads for faster searching
+--threads=4
+
+# Use memory maps when possible (faster for large files)
+--mmap
+
+# ------------------------------------------------------------------------------
+# File Type Associations (for --type flag)
+# ------------------------------------------------------------------------------
+
+# Web development
+--type-add=web:*.{html,css,scss,sass,less,js,jsx,ts,tsx,vue,svelte}
+
+# Configuration files
+--type-add=config:*.{json,yaml,yml,toml,ini,conf,config,cfg,env}
+
+# Documentation
+--type-add=docs:*.{md,markdown,rst,txt,adoc,org}
+
+# Shell scripts
+--type-add=shell:*.{sh,bash,zsh,fish}
+
+# Build & package management
+--type-add=build:*.{make,mk,cmake,gradle,ant,xml,sbt}
+--type-add=package:*.{lock,sum,mod}
+
+# Database & data files
+--type-add=data:*.{sql,db,sqlite,csv,tsv,json,xml}
+
+# Infrastructure & DevOps
+--type-add=devops:*.{dockerfile,docker-compose,Dockerfile*,*.tf,*.tfvars,*.hcl}
+
+# ------------------------------------------------------------------------------
+# Exclusions - Ignore common build artifacts, dependencies, and caches
+# ------------------------------------------------------------------------------
+
+# Version Control
+--glob=!.git/*
+--glob=!.svn/*
+--glob=!.hg/*
+
+# Dependencies & Package Managers
+--glob=!node_modules/*
+--glob=!bower_components/*
+--glob=!vendor/*
+--glob=!__pycache__/*
+--glob=!*.egg-info/*
+--glob=!.venv/*
+--glob=!venv/*
+--glob=!virtualenv/*
+--glob=!.tox/*
+--glob=!.nox/*
+
+# Build Outputs
+--glob=!dist/*
+--glob=!build/*
+--glob=!target/*
+--glob=!out/*
+--glob=!.next/*
+--glob=!.nuxt/*
+--glob=!.output/*
+--glob=!_build/*
+--glob=!*.o
+--glob=!*.so
+--glob=!*.dylib
+--glob=!*.dll
+--glob=!*.exe
+
+# IDE & Editor Files
+--glob=!.idea/*
+--glob=!.vscode/*
+--glob=!*.swp
+--glob=!*.swo
+--glob=!*~
+--glob=!.DS_Store
+
+# Logs & Temporary Files
+--glob=!*.log
+--glob=!*.pid
+--glob=!tmp/*
+--glob=!temp/*
+--glob=!.tmp/*
+
+# Coverage & Test Reports
+--glob=!coverage/*
+--glob=!.coverage
+--glob=!.nyc_output/*
+--glob=!htmlcov/*
+--glob=!.pytest_cache/*
+--glob=!.jest/*
+
+# Lock Files & Cache
+--glob=!package-lock.json
+--glob=!yarn.lock
+--glob=!pnpm-lock.yaml
+--glob=!Gemfile.lock
+--glob=!Cargo.lock
+--glob=!poetry.lock
+--glob=!.cache/*
+--glob=!*.cache
+
+# Compiled & Minified Files
+--glob=!*.min.js
+--glob=!*.min.css
+--glob=!*.bundle.js
+--glob=!*.chunk.js
+--glob=!*.pyc
+--glob=!*.pyo
+--glob=!*.class
+
+# Archives & Binaries
+--glob=!*.zip
+--glob=!*.tar
+--glob=!*.tar.gz
+--glob=!*.tgz
+--glob=!*.rar
+--glob=!*.7z
+--glob=!*.iso
+--glob=!*.dmg
+
+# Media Files (usually not text-searchable)
+--glob=!*.png
+--glob=!*.jpg
+--glob=!*.jpeg
+--glob=!*.gif
+--glob=!*.ico
+--glob=!*.svg
+--glob=!*.webp
+--glob=!*.mp4
+--glob=!*.mp3
+--glob=!*.wav
+--glob=!*.flac
+--glob=!*.pdf
+
+# Database Files
+--glob=!*.db
+--glob=!*.sqlite
+--glob=!*.sqlite3
+
+# Documentation Build
+--glob=!_site/*
+--glob=!.docusaurus/*
+--glob=!.vuepress/dist/*
+
+# macOS Specific
+--glob=!.Spotlight-V100/*
+--glob=!.Trashes/*
+--glob=!.fseventsd/*
+
+# Windows Specific
+--glob=!Thumbs.db
+--glob=!desktop.ini
+
+# ------------------------------------------------------------------------------
+# Size Limits
+# ------------------------------------------------------------------------------
+
+# Skip files larger than 10MB (likely binary or generated files)
+--max-filesize=10M
+
+# ------------------------------------------------------------------------------
+# Special Handling
+# ------------------------------------------------------------------------------
+
+# Don't respect .gitignore (we have explicit globs above for better control)
+# Uncomment if you want ripgrep to respect .gitignore:
+# --no-ignore-vcs
+
+# Follow .ignore and .rgignore files in each directory
+--no-ignore-dot
+
+# ------------------------------------------------------------------------------
+# Usage Tips (commented out)
+# ------------------------------------------------------------------------------
+
+# Search only in specific file types:
+#   rg "pattern" --type=web
+#   rg "pattern" -t config
+#
+# Exclude specific file types:
+#   rg "pattern" --type-not=docs
+#   rg "pattern" -T docs
+#
+# Search only file names:
+#   rg --files | rg "pattern"
+#
+# Count matches:
+#   rg "pattern" --count
+#
+# List files with matches (no content):
+#   rg "pattern" --files-with-matches
+#   rg "pattern" -l
+#
+# Case sensitive search:
+#   rg "Pattern" --case-sensitive
+#   rg "Pattern" -s
+#
+# Literal string search (no regex):
+#   rg "exact.string" --fixed-strings
+#   rg "exact.string" -F
+#
+# Multiline search:
+#   rg "pattern1.*pattern2" --multiline
+#   rg "pattern1.*pattern2" -U

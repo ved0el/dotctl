@@ -1,0 +1,16 @@
+# Tools profile — modern CLI tools, managed by mise (cross-platform, no apt gaps).
+# Linked to ~/.config/mise/conf.d/tools.toml; `mise install` (base profile hook)
+# installs everything declared here. Pin versions instead of "latest" if you want
+# reproducibility.
+[tools]
+"aqua:tealdeer-rs/tealdeer" = "latest" # tldr (not in mise's short registry)
+bat = "latest"
+delta = "latest"                       # git-delta
+eza = "latest"
+fd = "latest"
+fzf = "latest"
+gh = "latest"
+jq = "latest"
+ripgrep = "latest"
+yq = "latest"
+zoxide = "latest"

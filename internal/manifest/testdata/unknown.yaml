@@ -1,0 +1,3 @@
+packages:
+  - name: fd
+    unknown_key: oops

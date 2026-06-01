@@ -1,0 +1,46 @@
+# fd global ignore — ~/.config/fd/ignore
+# Patterns here are excluded from every fd search (gitignore syntax).
+# Keeps ad-hoc searches fast without cluttering FD_OPTIONS.
+
+# ── Version control ───────────────────────────────────────────────────────────
+.git
+.svn
+.hg
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules
+bower_components
+vendor
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.venv
+venv
+virtualenv
+.tox
+
+# ── Build outputs ─────────────────────────────────────────────────────────────
+dist
+build
+out
+target
+.next
+.nuxt
+.output
+_build
+*.o
+*.so
+*.dylib
+*.class
+
+# ── IDE / editor artefacts ────────────────────────────────────────────────────
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# ── OS artefacts ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

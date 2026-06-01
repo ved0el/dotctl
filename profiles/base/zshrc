@@ -1,0 +1,93 @@
+#!/usr/bin/env zsh
+# Managed by dotctl (base profile) — linked to ~/.zshrc.
+# Machine-local tweaks belong in ~/.zshrc.local (not synced).
+#
+# Performance: tool init scripts (sheldon, mise) are generated once, cached, and
+# byte-compiled (.zwc), regenerated only when their source changes; heavy plugins
+# load deferred via zsh-defer (config/sheldon/plugins.toml). Per-tool integration
+# lives in ~/.config/zsh/conf.d/ (shipped by the profiles that own those tools).
+
+# --- powerlevel10k instant prompt (must stay near the top) ---
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# --- environment ---
+export EDITOR="${EDITOR:-vim}"
+# Tools installed by their own scripts (sheldon, mise) land in ~/.local/bin.
+[[ ":$PATH:" == *":$HOME/.local/bin:"* ]] || export PATH="$HOME/.local/bin:$PATH"
+
+# --- history ---
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=50000
+setopt SHARE_HISTORY HIST_IGNORE_ALL_DUPS HIST_IGNORE_SPACE HIST_REDUCE_BLANKS EXTENDED_HISTORY
+
+# --- shell options ---
+setopt AUTO_CD EXTENDED_GLOB INTERACTIVE_COMMENTS NO_BEEP
+
+# --- cache helpers ---
+ZSH_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+[[ -d "$ZSH_CACHE_DIR" ]] || mkdir -p "$ZSH_CACHE_DIR"
+
+# cache_eval <command> [args...] — run `<command> [args...]`, cache its output to
+# a byte-compiled file, and source it; regenerated only when the command's binary
+# changes. No-ops if the command is absent. Avoids a subprocess per start.
+# Available to conf.d snippets too. Example: cache_eval mise activate zsh
+cache_eval() {
+  command -v "$1" >/dev/null 2>&1 || return 0
+  local name="$1" cache="$ZSH_CACHE_DIR/$1.zsh" bin; shift
+  bin="$(command -v "$name")"
+  if [[ ! -r "$cache" || "$bin" -nt "$cache" ]]; then
+    "$name" "$@" >| "$cache" 2>/dev/null
+    zcompile "$cache" 2>/dev/null
+  fi
+  source "$cache"
+}
+
+# --- sheldon: plugins; cache keyed on plugins.toml ---
+# Sourced BEFORE compinit so plugins that extend $fpath (zsh-completions) are
+# picked up; deferred plugins that need compinit (fzf-tab) fire after prompt.
+if command -v sheldon >/dev/null 2>&1; then
+  _toml="${XDG_CONFIG_HOME:-$HOME/.config}/sheldon/plugins.toml"
+  _cache="$ZSH_CACHE_DIR/sheldon.zsh"
+  if [[ ! -r "$_cache" || "$_toml" -nt "$_cache" ]]; then
+    sheldon source >| "$_cache"
+    zcompile "$_cache" 2>/dev/null
+  fi
+  source "$_cache"
+  unset _toml _cache
+
+  # history-substring-search keybindings (its widgets exist once sourced above).
+  bindkey '^[[A' history-substring-search-up    # Up
+  bindkey '^[[B' history-substring-search-down  # Down
+  bindkey -M vicmd 'k' history-substring-search-up
+  bindkey -M vicmd 'j' history-substring-search-down
+fi
+
+# --- completions: rebuild the dump at most once a day, byte-compile in bg ---
+autoload -Uz compinit
+_zcompdump="$ZSH_CACHE_DIR/zcompdump"
+if [[ -n "$_zcompdump"(#qN.mh+24) ]]; then
+  compinit -d "$_zcompdump"            # >24h old → full rebuild (security check)
+else
+  compinit -C -d "$_zcompdump"         # fresh → skip the check, use cache
+fi
+{ [[ -s "$_zcompdump" && (! -s "$_zcompdump.zwc" || "$_zcompdump" -nt "$_zcompdump.zwc") ]] && zcompile "$_zcompdump"; } &!
+unset _zcompdump
+
+# --- mise: runtime/tool version manager (base owns it) ---
+cache_eval mise activate zsh
+
+# --- per-profile shell integration ---
+# Profiles drop snippets in ~/.config/zsh/conf.d/ (e.g. the tools profile ships
+# tool aliases + fzf/zoxide init). Sourced after mise so tool shims are on PATH.
+# (N) glob qualifier → no error when the dir is absent (profile not applied).
+for _f in "${XDG_CONFIG_HOME:-$HOME/.config}"/zsh/conf.d/*.zsh(N); do
+  source "$_f"
+done
+unset _f
+
+# --- powerlevel10k theme + machine-local overrides ---
+[[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
+[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local

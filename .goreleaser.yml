@@ -1,0 +1,31 @@
+version: 2
+project_name: dotctl
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: dotctl
+    main: ./cmd/dotctl
+    binary: dotctl
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    # Target main.version (package-name target, not a module path) so renaming
+    # the repo needs no change here.
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: dotctl
+    formats: [binary]
+    # Asset names must match what install.sh downloads: dotctl_<os>_<arch>
+    name_template: "dotctl_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+# `release:` is intentionally omitted — goreleaser auto-detects the GitHub
+# owner/repo from the git remote, so renaming the repo needs no change here.

@@ -1,0 +1,20 @@
+# Base profile: core tools every machine gets.
+#
+# git/tmux come from the system package manager (brew/apt — universally available).
+# sheldon and mise install via their official cross-platform scripts (install:),
+# so they need no brew/apt and work identically on macOS and Linux. mise is the
+# single source for all other CLI tools + languages (see tools/ and develop/).
+#
+# Hooks run AFTER packages install and dotfiles link, so each plugin manager sees
+# its config already in place. `mise install` materializes whatever conf.d/*.toml
+# the selected profiles linked into ~/.config/mise/conf.d/.
+packages:
+  - git
+  - name: tmux
+    post_install: "[ -d ~/.tmux/plugins/tpm ] || git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm; ~/.tmux/plugins/tpm/bin/install_plugins"
+  - name: sheldon # zsh plugin manager
+    install: "curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin"
+    post_install: "sheldon lock"
+  - name: mise # runtime & CLI-tool manager (drives tools/ and develop/)
+    install: "curl https://mise.run | sh"
+    post_install: "mise install --yes"

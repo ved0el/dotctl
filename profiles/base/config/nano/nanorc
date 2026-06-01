@@ -1,0 +1,41 @@
+# nanorc — nano editor configuration
+
+# ── Display ───────────────────────────────────────────────────────────────────
+set linenumbers       # line numbers in the left margin
+set constantshow      # always show cursor position (line, col) in status bar
+set numbercolor cyan
+
+# ── Editing ───────────────────────────────────────────────────────────────────
+set autoindent        # maintain indentation level of the previous line
+set tabsize 2
+set tabstospaces      # insert spaces when Tab is pressed
+set trimblanks        # strip trailing whitespace on save
+
+# ── Navigation & input ────────────────────────────────────────────────────────
+set mouse             # click to position cursor, scroll with wheel
+# `set smooth` and `set morespace` were removed in nano 4.0 — their behavior
+# is the default now; keeping the directives would error out at startup.
+
+# ── Search ────────────────────────────────────────────────────────────────────
+set casesensitive     # case-sensitive by default; toggle with Alt+C
+
+# ── Files ─────────────────────────────────────────────────────────────────────
+set backup            # keep one backup (<file>~) before each write
+set historylog        # persist search/replace history across sessions
+set multibuffer       # ^R opens files in additional buffers instead of replacing
+
+# ── Interface ─────────────────────────────────────────────────────────────────
+set softwrap          # wrap display at screen edge without inserting newlines
+
+# ── Syntax highlighting ───────────────────────────────────────────────────────
+# Intentionally no `include` lines here — nano 7+ errors on globs that match
+# zero files, so a single hard-coded path breaks the other OS. Instead we rely
+# on the system-level loader, which both platforms already wire up correctly:
+#
+#   Linux  /etc/nanorc                        → include "/usr/share/nano/*.nanorc"
+#   macOS  $(brew --prefix)/etc/nanorc        → include "$(brew --prefix)/share/nano/*.nanorc"
+#
+# /etc/nanorc (or its Homebrew equivalent) is loaded BEFORE ~/.nanorc, so the
+# syntax files are already registered by the time this file is read. On macOS
+# the stock /usr/bin/nano ships no syntax files at all — install GNU nano via
+# `brew install nano` and the brewed wrapper loads its own etc/nanorc.

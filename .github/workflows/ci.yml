@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Force bundled JS actions (e.g. golangci-lint-action) onto the Node 24 LTS
+# runtime; clears the "Node.js 20 actions are deprecated" warning.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+      - run: go vet ./...
+      - run: go test -cover ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+      - uses: golangci/golangci-lint-action@v9 # v9 (Node 24) installs golangci-lint v2 (matches .golangci.yml schema)
+        with:
+          version: latest
+      - name: shellcheck install.sh
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck install.sh
+
+  smoke:
+    # End-to-end smoke that needs no package installs: build, dry-run the full
+    # plan, then really link into a throwaway HOME and assert idempotency.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+      - run: make build VERSION=ci
+      - run: ./dotctl version
+      - name: dry-run init (no changes)
+        run: DOTCTL_REPO="$PWD" ./dotctl init --profiles base,tools,develop --dry-run -v
+      - name: real link into sandbox HOME + idempotency
+        run: |
+          SBX="$(mktemp -d)"
+          HOME="$SBX" DOTCTL_REPO="$PWD" ./dotctl link -v
+          test -L "$SBX/.zshrc"     || { echo "::error::.zshrc not linked"; exit 1; }
+          test -L "$SBX/.tmux.conf" || { echo "::error::.tmux.conf not linked"; exit 1; }
+          test -L "$SBX/.p10k.zsh"  || { echo "::error::.p10k.zsh not linked"; exit 1; }
+          HOME="$SBX" DOTCTL_REPO="$PWD" ./dotctl link -v   # must be idempotent
+          HOME="$SBX" DOTCTL_REPO="$PWD" ./dotctl unlink -v

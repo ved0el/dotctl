@@ -1,0 +1,13 @@
+# Go
+/dotctl
+*.test
+*.out
+/dist/
+/.bin/
+
+# Local machine config (never synced)
+/local/
+
+# Internal design & planning docs — not published
+docs/superpowers/
+**/plans/

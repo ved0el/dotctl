@@ -1,0 +1,85 @@
+# `sheldon` configuration file
+# ----------------------------
+#
+# This configuration is optimized for fast shell loading by:
+# 1. Using zsh-defer for non-critical plugins
+# 2. Grouping plugins by priority and loading order
+# 3. Minimizing synchronous loading
+# 4. Using efficient hooks and triggers
+
+# reference: https://zenn.dev/fuzmare/articles/zsh-plugin-manager-cache
+
+shell = "zsh"
+
+[templates]
+defer = "{{ hooks?.pre | nl }}{% for file in files %}zsh-defer source \"{{ file }}\"\n{% endfor %}{{ hooks?.post | nl }}"
+
+# =============================================================================
+# Core Plugins (Loaded immediately)
+# =============================================================================
+
+[plugins.zsh-defer]
+github = "romkatv/zsh-defer"
+
+[plugins.fast-syntax-highlight]
+github = "zdharma-continuum/fast-syntax-highlighting"
+
+# =============================================================================
+# Completion Plugins (Deferred)
+# =============================================================================
+
+[plugins.zsh-completions]
+github = "zsh-users/zsh-completions"
+# Loaded immediately (not deferred) so fpath is set before compinit runs
+hooks.pre = "fpath+=(${0:A:h}/src)"
+
+[plugins.fzf-tab]
+github = "Aloxaf/fzf-tab"
+apply = ["defer"]
+# Deferred, so it loads after ~/.zshrc runs compinit (fzf-tab requires compinit first).
+
+# =============================================================================
+# UI Enhancement Plugins (Deferred)
+# =============================================================================
+
+[plugins.zsh-autosuggestions]
+github = "zsh-users/zsh-autosuggestions"
+apply = ["defer"]
+hooks.pre = "zmodload zsh/zpty"
+
+# =============================================================================
+# Development Tools (Deferred)
+# =============================================================================
+
+# Interactive git commands powered by fzf: ga (add), glo (log), gd (diff),
+# gco (checkout branch/file), gcf (fixup), gss (stash), gclean, and more.
+[plugins.forgit]
+github = "wfxr/forgit"
+apply = ["defer"]
+
+# =============================================================================
+# Themes
+# =============================================================================
+
+[plugins.powerlevel10k]
+github = "romkatv/powerlevel10k"
+
+# =============================================================================
+# Quality of Life (daily-use, low startup cost)
+# =============================================================================
+
+# Reminds you when a typed command has an alias you forgot. Hook-only, deferred.
+[plugins.zsh-you-should-use]
+github = "MichaelAquilina/zsh-you-should-use"
+apply = ["defer"]
+
+# Auto-closes quotes/brackets/parens. Lightweight, deferred.
+[plugins.zsh-autopair]
+github = "hlissner/zsh-autopair"
+apply = ["defer"]
+
+# Prefix history search on Up/Down. Loaded immediately (NOT deferred) so its
+# widgets exist when the keybindings in ~/.zshrc run. Must come after
+# fast-syntax-highlighting (above).
+[plugins.zsh-history-substring-search]
+github = "zsh-users/zsh-history-substring-search"

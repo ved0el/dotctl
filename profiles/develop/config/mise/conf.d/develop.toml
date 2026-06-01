@@ -1,0 +1,8 @@
+# Develop profile — language runtimes, managed by mise.
+# Linked to ~/.config/mise/conf.d/develop.toml; `mise install` (base profile hook)
+# installs everything declared here. Adjust the list/versions to taste.
+[tools]
+node = "lts"
+python = "latest"
+go = "latest"
+bun = "latest"

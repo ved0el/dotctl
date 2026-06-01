@@ -1,0 +1,117 @@
+package engine
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/ved0el/dotctl/internal/console"
+	"github.com/ved0el/dotctl/internal/machine"
+	"github.com/ved0el/dotctl/internal/manifest"
+)
+
+type fakeManager struct{ installed []manifest.Package }
+
+func (f *fakeManager) Name() string    { return "fake" }
+func (f *fakeManager) Available() bool { return true }
+func (f *fakeManager) Install(_ context.Context, pkgs []manifest.Package) error {
+	f.installed = append(f.installed, pkgs...)
+	return nil
+}
+func (f *fakeManager) IsInstalled(_ context.Context, _ manifest.Package) (bool, error) {
+	return true, nil
+}
+
+type fakeRunner struct{ calls [][]string }
+
+func (f *fakeRunner) Run(_ context.Context, name string, args ...string) error {
+	f.calls = append(f.calls, append([]string{name}, args...))
+	return nil
+}
+func (f *fakeRunner) Output(_ context.Context, _ string, _ ...string) ([]byte, error) {
+	return nil, nil
+}
+
+type fakeLinker struct{ applied []string }
+
+func (f *fakeLinker) Apply(profileDir string) error {
+	f.applied = append(f.applied, profileDir)
+	return nil
+}
+
+func TestRun(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - ripgrep\n  - name: mise\n    post_install: \"echo hi\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fm := &fakeManager{}
+	fr := &fakeRunner{}
+	fl := &fakeLinker{}
+	log := console.New(&bytes.Buffer{}, false)
+
+	err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: fl, Manager: fm, Runner: fr, Log: log})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if len(fm.installed) != 2 {
+		t.Errorf("expected 2 packages installed, got %d (%+v)", len(fm.installed), fm.installed)
+	}
+	if len(fr.calls) != 1 || fr.calls[0][0] != "sh" {
+		t.Errorf("expected one sh hook call, got %v", fr.calls)
+	}
+	if len(fl.applied) != 1 || fl.applied[0] != base {
+		t.Errorf("expected base profile linked, got %v", fl.applied)
+	}
+}
+
+func TestRunCustomInstall(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A custom-install package with a name that is definitely not on PATH, so
+	// the Go-level presence check doesn't skip it; git: managed (brew/apt).
+	const fake = "dotctl-absent-tool-xyz"
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - git\n  - name: "+fake+"\n    install: \"curl example | sh\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fm := &fakeManager{}
+	fr := &fakeRunner{}
+	if err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: fm, Runner: fr, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	// git goes to the manager; the custom package does NOT.
+	if len(fm.installed) != 1 || fm.installed[0].Name != "git" {
+		t.Errorf("expected only git via manager, got %+v", fm.installed)
+	}
+	// The custom install ran via the runner (no shell guard — presence checked in Go).
+	var sawCustom bool
+	for _, c := range fr.calls {
+		if strings.Contains(strings.Join(c, " "), "curl example") {
+			sawCustom = true
+		}
+	}
+	if !sawCustom {
+		t.Errorf("expected custom install to run, got %v", fr.calls)
+	}
+}

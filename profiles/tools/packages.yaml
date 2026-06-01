@@ -1,0 +1,7 @@
+# Tools profile — packages the system manager installs (brew/apt).
+# Most CLI tools are mise-managed (config/mise/conf.d/tools.toml); these few
+# aren't cleanly in mise's registry, so they come from brew/apt under the same
+# name on both platforms.
+packages:
+  - btop
+  - tree

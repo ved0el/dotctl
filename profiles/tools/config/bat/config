@@ -1,0 +1,50 @@
+# bat configuration — https://github.com/sharkdp/bat
+# ── Theme ─────────────────────────────────────────────────────────────────────
+# Built-in dark theme that pairs well with most terminal colour schemes.
+# Run `bat --list-themes` to see all options; `bat --theme=<name> <file>` to preview.
+--theme="Dracula"
+
+# ── Display style ─────────────────────────────────────────────────────────────
+# numbers       — line numbers in the gutter
+# changes       — git diff marks (added / modified / removed lines)
+# header-filename — file name above the content block
+# grid          — box-drawing lines around the content
+# snip          — separator between file ranges when using --line-range
+--style="numbers,changes,header-filename,grid,snip"
+
+# ── Pager ─────────────────────────────────────────────────────────────────────
+# --RAW-CONTROL-CHARS   pass colour escape codes through
+# --quit-if-one-screen  fall back to plain output for short files
+# --mouse               enable mouse wheel scrolling
+--pager="less --RAW-CONTROL-CHARS --quit-if-one-screen --mouse"
+
+# ── Formatting ────────────────────────────────────────────────────────────────
+--tabs=2
+--italic-text=always
+# Force color output even when stdout is not a TTY (e.g. fzf preview pane,
+# pipes). This means bat's theme and syntax highlighting always come through.
+--color=always
+
+# ── Syntax mappings ───────────────────────────────────────────────────────────
+# Files that bat can't identify by extension alone.
+--map-syntax=".zshrc:Bourne Again Shell (bash)"
+--map-syntax=".zshenv:Bourne Again Shell (bash)"
+--map-syntax=".zshrc.local:Bourne Again Shell (bash)"
+--map-syntax=".zprofile:Bourne Again Shell (bash)"
+--map-syntax=".bashrc:Bourne Again Shell (bash)"
+--map-syntax=".bash_profile:Bourne Again Shell (bash)"
+--map-syntax="*.zsh:Bourne Again Shell (bash)"
+--map-syntax=".env:INI"
+--map-syntax=".env.local:INI"
+--map-syntax=".env.example:INI"
+--map-syntax=".env.production:INI"
+--map-syntax=".env.staging:INI"
+--map-syntax="*.conf:INI"
+--map-syntax=".gitconfig:INI"
+--map-syntax=".editorconfig:INI"
+--map-syntax="Dockerfile*:Dockerfile"
+--map-syntax="*.Dockerfile:Dockerfile"
+--map-syntax="Makefile*:Makefile"
+--map-syntax="CHANGELOG:Markdown"
+--map-syntax="CHANGES:Markdown"
+--map-syntax="CONTRIBUTING:Markdown"

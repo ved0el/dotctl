@@ -1,0 +1,6 @@
+packages:
+  - ripgrep
+  - name: fd
+    apt: fd-find
+  - name: mise
+    post_install: "mise --version"
