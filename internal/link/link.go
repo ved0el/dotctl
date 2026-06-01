@@ -157,9 +157,15 @@ func (l *Linker) Apply(profileDir string) error {
 		return err
 	}
 	backupDir := filepath.Join(l.Home, ".dotfiles-backup", strconv.FormatInt(l.Now().Unix(), 10))
-	for _, p := range pairs {
+	for i, p := range pairs {
 		if err := l.linkOne(p.Src, p.Dst, backupDir); err != nil {
-			return err
+			// Partial apply: $HOME is half-converged. Surface exactly where it
+			// stopped and where to recover any moved originals, then re-run.
+			l.Log.Warn("link failed after %d/%d entries (at %s)", i, len(pairs), p.Dst)
+			if _, e := l.FS.Lstat(backupDir); e == nil {
+				l.Log.Warn("displaced originals are under %s — recover them there; re-run to retry", backupDir)
+			}
+			return fmt.Errorf("apply %s: %w", profileDir, err)
 		}
 	}
 	return nil

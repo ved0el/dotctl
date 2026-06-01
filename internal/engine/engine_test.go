@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,16 +14,20 @@ import (
 	"github.com/ved0el/dotctl/internal/manifest"
 )
 
-type fakeManager struct{ installed []manifest.Package }
+type fakeManager struct {
+	installed   []manifest.Package
+	installErr  error // returned by Install (simulates a batch failure)
+	installedOK bool  // value IsInstalled reports
+}
 
 func (f *fakeManager) Name() string    { return "fake" }
 func (f *fakeManager) Available() bool { return true }
 func (f *fakeManager) Install(_ context.Context, pkgs []manifest.Package) error {
 	f.installed = append(f.installed, pkgs...)
-	return nil
+	return f.installErr
 }
 func (f *fakeManager) IsInstalled(_ context.Context, _ manifest.Package) (bool, error) {
-	return true, nil
+	return f.installedOK, nil
 }
 
 type fakeRunner struct{ calls [][]string }
@@ -113,5 +118,49 @@ func TestRunCustomInstall(t *testing.T) {
 	}
 	if !sawCustom {
 		t.Errorf("expected custom install to run, got %v", fr.calls)
+	}
+}
+
+func TestRunCollectsInstallFailureAndSkipsDependentHook(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A managed package with a hook; the manager fails to install it.
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - name: tmux\n    post_install: \"echo hi\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fm := &fakeManager{installErr: errors.New("boom"), installedOK: false}
+	fr := &fakeRunner{}
+	err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: fm, Runner: fr, Log: console.New(&bytes.Buffer{}, false)})
+
+	if err == nil {
+		t.Error("expected non-nil error when install fails")
+	}
+	// The hook must be skipped because tmux didn't install (IsInstalled → false).
+	for _, c := range fr.calls {
+		if strings.Contains(strings.Join(c, " "), "echo hi") {
+			t.Errorf("hook should be skipped for a package that failed to install, got %v", fr.calls)
+		}
+	}
+}
+
+func TestRunCancelled(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "profiles", "base"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := Run(ctx, Options{Repo: repo, Profiles: []string{"base"}}, machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: &fakeManager{}, Runner: &fakeRunner{}, Log: console.New(&bytes.Buffer{}, false)})
+	if err == nil {
+		t.Error("expected context cancellation error")
 	}
 }

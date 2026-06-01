@@ -1,10 +1,11 @@
 // Package engine runs the ordered pipeline that converges a machine to its
-// declared configuration: resolve packages → install → run post_install hooks →
-// link dotfiles. It is the single home of orchestration; commands stay thin.
+// declared configuration: resolve packages → install → link dotfiles → run
+// post_install hooks. It is the single home of orchestration; commands stay thin.
 package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -36,10 +37,15 @@ type Options struct {
 	Profiles []string // profiles to apply, in precedence order
 }
 
-// Run executes the reconcile pipeline. A package-install error is reported but
-// does not abort linking (the machine should still get its dotfiles); a hook or
-// link failure stops the run.
+// Run executes the reconcile pipeline. Package-install failures are collected
+// (not fatal — the machine should still get its dotfiles), and a hook is skipped
+// when its owning package isn't actually installed. A link failure IS fatal (it
+// would leave $HOME half-converged). Run returns a non-nil error — joined across
+// all collected failures — when anything went wrong, so callers exit non-zero.
 func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	profileRoot := filepath.Join(opts.Repo, machine.ProfilesSubdir)
 
 	pkgs, err := machine.ResolvePackages(profileRoot, opts.Profiles, cfg)
@@ -47,77 +53,100 @@ func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
 		return fmt.Errorf("resolve packages: %w", err)
 	}
 
+	var failed []error
+	customOK := map[string]bool{} // custom package name → installed/present
+
 	// Custom-install packages (e.g. sheldon, mise) run their own cross-platform
-	// command, guarded so an already-present binary is skipped. Everything else
-	// goes through the platform package manager (brew/apt).
+	// command, guarded so an already-present binary is skipped. The rest go
+	// through the platform package manager (brew/apt) as a batch.
 	var managed []manifest.Package
 	for _, p := range pkgs {
-		if p.Custom() {
-			if err := runCustomInstall(ctx, p, d); err != nil {
-				return err
-			}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !p.Custom() {
+			managed = append(managed, p)
 			continue
 		}
-		managed = append(managed, p)
+		if pkg.CommandExists(p.Name) {
+			d.Log.Debug("skip %s (already installed)", p.Name)
+			customOK[p.Name] = true
+			continue
+		}
+		d.Log.Step("installing %s (custom)", p.Name)
+		if err := d.Runner.Run(ctx, "sh", "-c", localBinPath+p.Install); err != nil {
+			d.Log.Warn("install %q failed: %v", p.Name, err)
+			failed = append(failed, fmt.Errorf("install %s: %w", p.Name, err))
+		} else {
+			customOK[p.Name] = true
+		}
 	}
 
+	managedFailed := false
 	if len(managed) > 0 {
 		if !d.Manager.Available() {
 			d.Log.Warn("%s not found on PATH; package installs may fail", d.Manager.Name())
 		}
 		d.Log.Step("installing %d package(s) via %s", len(managed), d.Manager.Name())
 		if err := d.Manager.Install(ctx, managed); err != nil {
-			d.Log.Warn("package install reported errors: %v", err)
+			d.Log.Warn("%s install reported errors: %v", d.Manager.Name(), err)
+			failed = append(failed, fmt.Errorf("%s install: %w", d.Manager.Name(), err))
+			managedFailed = true
 		}
 	}
 
-	// Link dotfiles before running hooks so plugin managers (sheldon, tmux/TPM,
-	// mise) see their config in place when their post_install hook fires.
+	// present reports whether p's tool is installed, so its hook can run. Only
+	// probes the manager when the batch failed (avoids noise on the happy path
+	// and in dry-run, where Install is a no-op that "succeeds").
+	present := func(p manifest.Package) bool {
+		if p.Custom() {
+			return customOK[p.Name]
+		}
+		if !managedFailed {
+			return true
+		}
+		ok, _ := d.Manager.IsInstalled(ctx, p)
+		return ok
+	}
+
+	// Link dotfiles before hooks so plugin managers (sheldon, tmux/TPM, mise)
+	// see their config in place when their post_install hook fires.
 	for _, profile := range opts.Profiles {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		d.Log.Step("linking profile %q", profile)
 		if err := d.Linker.Apply(filepath.Join(profileRoot, profile)); err != nil {
 			return fmt.Errorf("link profile %q: %w", profile, err)
 		}
 	}
 
-	if err := runHooks(ctx, pkgs, d); err != nil {
-		return err
+	for _, p := range pkgs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if p.PostInstall == "" || p.Skipped(d.Manager.Name()) {
+			continue
+		}
+		if !present(p) {
+			d.Log.Warn("skipping hook for %q (not installed)", p.Name)
+			continue
+		}
+		d.Log.Step("hook: %s", p.PostInstall)
+		if err := d.Runner.Run(ctx, "sh", "-c", localBinPath+p.PostInstall); err != nil {
+			d.Log.Warn("hook for %q failed: %v", p.Name, err)
+			failed = append(failed, fmt.Errorf("post_install %s: %w", p.Name, err))
+		}
+	}
+
+	if len(failed) > 0 {
+		d.Log.Warn("reconcile finished with %d error(s)", len(failed))
+		return errors.Join(failed...)
 	}
 	d.Log.OK("reconcile complete")
 	return nil
 }
 
 // localBinPath puts ~/.local/bin first so freshly self-installed tools (sheldon,
-// mise — both land there) are found by the idempotency guard and the hooks,
-// regardless of the parent process PATH.
+// mise — both land there) are found by the hooks, regardless of parent PATH.
 const localBinPath = `export PATH="$HOME/.local/bin:$PATH"; `
-
-// runCustomInstall runs a package's custom install command, skipping it when the
-// binary is already present (idempotent re-runs). The presence check is done in
-// Go — p.Name never enters the shell string — so a package name can't inject.
-func runCustomInstall(ctx context.Context, p manifest.Package, d Deps) error {
-	if pkg.CommandExists(p.Name) {
-		d.Log.Debug("skip %s (already installed)", p.Name)
-		return nil
-	}
-	d.Log.Step("installing %s (custom)", p.Name)
-	if err := d.Runner.Run(ctx, "sh", "-c", localBinPath+p.Install); err != nil {
-		return fmt.Errorf("install %q: %w", p.Name, err)
-	}
-	return nil
-}
-
-func runHooks(ctx context.Context, pkgs []manifest.Package, d Deps) error {
-	for _, p := range pkgs {
-		// Skip hooks for packages not managed on this platform (e.g. a mise
-		// hook on apt, where mise was never installed).
-		if p.PostInstall == "" || p.Skipped(d.Manager.Name()) {
-			continue
-		}
-		d.Log.Step("hook: %s", p.PostInstall)
-		if err := d.Runner.Run(ctx, "sh", "-c", localBinPath+p.PostInstall); err != nil {
-			return fmt.Errorf("post_install for %q: %w", p.Name, err)
-		}
-	}
-	return nil
-}
