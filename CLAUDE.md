@@ -49,7 +49,11 @@ shellcheck install.sh               # bootstrap lint
   `shellcheck`, and only detects platform + fetches/execs the binary. Real logic
   lives in Go, not the shell.
 - **Package managers are pluggable.** New managers implement the `pkg.Manager`
-  interface; never special-case a manager outside its backend.
+  interface; never special-case a manager outside its backend. `pkg.Select` picks
+  the manager by probing PATH (brew/apt/dnf), not by GOOS.
+- **Hooks are trusted code.** `install:` and `post_install:` run arbitrary shell
+  from the synced repo. Treat `profiles/` as trusted; review changes pulled via
+  `sync` as you would any code you execute.
 - **Global vs local separation.** `profiles/` is synced via git; anything under
   `~/.config/dotctl/` is machine-local and must never be written into the repo.
 

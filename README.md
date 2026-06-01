@@ -14,7 +14,7 @@
 
 </div>
 
-> **Early release (`v0.1.2`).** Core install/link/package flow is stable and
+> **Early release (`v0.3.0`).** Core install/link/package flow is stable and
 > CI-verified on macOS + Linux. Expect additive changes before `v1.0.0`.
 
 `dotctl` is a profile-based dotfiles and environment manager. You describe your desired
@@ -57,7 +57,7 @@ curl -fsSL https://tinyurl.com/get-dotctl | DOTCTL_PROFILES=base,tools,develop s
 
 ```sh
 # Pin a version, or use the canonical URL instead of the short link:
-curl -fsSL https://raw.githubusercontent.com/ved0el/dotctl/main/install.sh | DOTCTL_VERSION=v0.1.2 sh
+curl -fsSL https://raw.githubusercontent.com/ved0el/dotctl/main/install.sh | DOTCTL_VERSION=v0.3.0 sh
 
 # Windows (best-effort, Tier 2):
 irm https://raw.githubusercontent.com/ved0el/dotctl/main/install.ps1 | iex
@@ -75,14 +75,18 @@ clones the repo to `~/.dotfiles`, downloads the matching `dotctl` binary, and ru
 |---|---|
 | `dotctl init` | Full setup: resolve profiles → install packages → link dotfiles → run hooks. Idempotent. |
 | `dotctl apply` | Re-converge this machine to its declared config (no prompts). |
-| `dotctl sync` | `git pull` the repo, then `apply`. |
-| `dotctl status` | Show drift: which links and packages are present or missing. |
+| `dotctl status` (`st`) | Show drift: links/packages present, missing, or wrong. Bare `dotctl` runs this; exits non-zero on drift. |
+| `dotctl add <path>…` | Adopt existing dotfiles into a profile (move into the repo + symlink back). |
+| `dotctl sync` | `git pull` the repo, then re-converge. |
+| `dotctl save -m "…"` | Commit and push your dotfiles changes. |
+| `dotctl doctor` | Diagnose environment problems (PATH, package manager, broken links). |
+| `dotctl profile ls\|add\|rm` | Manage this machine's profiles. |
+| `dotctl pkg install\|add\|rm` | Manage packages (add/rm mutate a profile's manifest). |
 | `dotctl link` / `dotctl unlink` | Manage symlinks only. |
-| `dotctl pkg install` | Install packages only. |
-| `dotctl profile add\|rm\|ls` | Manage this machine's profiles. |
-| `dotctl doctor` | Diagnose environment problems. |
+| `dotctl new` | Scaffold a fresh dotfiles repo. |
 
-Every mutating command supports `--dry-run` and `--verbose`.
+Every mutating command supports `--dry-run` / `-n` and `--verbose` / `-v`. Shell
+completion: `dotctl completion zsh\|bash\|fish`.
 
 ## Configuration
 
@@ -115,7 +119,7 @@ script; **CLI tools & languages are managed by mise** (one source, no per-OS gap
 packages:
   - git                                       # system (brew/apt)
   - name: mise                                # installs itself, then drives the rest
-    install: "curl https://mise.run | sh"
+    install: "curl --proto =https --tlsv1.2 -fsSL https://mise.run | sh"
     post_install: "mise install --yes"
 ```
 ```toml

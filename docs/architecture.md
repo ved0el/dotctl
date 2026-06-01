@@ -65,39 +65,33 @@ Each `internal/` package has a single responsibility and is independently testab
 
 ## CLI surface
 
-Commands are grouped by how often they're used. **First ship (v0.1) is intentionally
-minimal** — the bootstrap path only. The daily-driver verbs follow in v0.2; they reuse
-the same engines and seams (notably `link` reversed for `add`, and the `Runner` seam for
-`sync`/`save`), so they confirm the design rather than stretch it.
-
-### First ship (v0.1) — minimal
+All commands below are implemented (through v0.3). Mutating commands support
+`--dry-run` / `-n` and `--verbose` / `-v`. They reuse the same seams — `link`
+forward (apply) and reversed (`add`), `link.Status` for `status`/`doctor`, the
+`Runner` seam for `sync`/`save` — so the surface confirms the design.
 
 | Command | Does |
 |---|---|
 | `dotctl init` | Full setup: resolve → install → link → hooks. Idempotent. Called by `install.sh`. |
 | `dotctl apply` | Re-converge this machine (no prompts). |
+| `dotctl status` (`st`) | Drift report (links + packages); bare `dotctl` runs it; non-zero exit on drift. |
+| `dotctl add <path>…` | Adopt a file/dir into a profile (the link engine, reversed). |
+| `dotctl sync` | `git pull --ff-only` then reconcile. |
+| `dotctl save -m "…"` | `git add -A && commit && push` (clean-tree aware). |
+| `dotctl doctor` | Health checks: PATH, `~/.local/bin`, package manager, broken links, repo. |
+| `dotctl profile ls\|add\|rm` | Manage profile selection in machine.yaml. |
+| `dotctl pkg install\|add\|rm` | Install configured packages; add/rm mutate a profile manifest. |
 | `dotctl link` / `unlink` | Symlinks only. |
-| `dotctl pkg install` | Packages only. |
+| `dotctl new` | Scaffold a fresh dotfiles repo. |
+| `dotctl completion <shell>` | Shell completion (cobra). |
 | `dotctl version` | Print build version. |
 
-All mutating commands support `--dry-run` / `-n` and `--verbose` / `-v`.
+### Future (v1.0 and beyond)
 
-### Daily drivers (v0.2) — what makes it a tool you reach for
-
-| Command | The moment it solves |
-|---|---|
-| `dotctl add <path>…` | Adopt an existing file/dir into a profile and replace it with a symlink (the `link` engine, reversed). |
-| `dotctl status` (`st`) | Show drift: links ok/missing/broken, packages missing, repo dirty. Bare `dotctl` defaults here; exits non-zero on drift for shell-prompt integration. |
-| `dotctl edit <name>` | Open a managed file's repo source in `$EDITOR` by logical name. |
-| `dotctl sync` | `git pull` + `apply`. |
-| `dotctl save -m "msg"` | `git add -A && commit && push` the repo. |
-| `dotctl pkg add/rm <name>` | Add/remove a package in the profile manifest and (un)install it. |
-| `dotctl completion <shell>` | Shell completion (free via cobra). |
-
-### Occasional / later
-
-`dotctl upgrade` (pull + package upgrades + apply) · `dotctl profile ls/add/rm` ·
-`dotctl doctor` · `dotctl new` (scaffold a fresh dotfiles repo).
+Templated file content (per-machine/OS values) · secret management (age/gpg) ·
+`status` content diff · machine classes/tags · `dotctl uninstall`/teardown ·
+frozen/versioned config schema · `dotctl edit` · `dotctl upgrade` · self-update ·
+Windows Tier 2 (install.ps1, scoop).
 
 ## Symlink convention (modified Stow)
 
