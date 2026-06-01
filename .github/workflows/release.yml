@@ -24,7 +24,7 @@ jobs:
           go-version: "1.26"
       - uses: goreleaser/goreleaser-action@v7 # v7 runs on Node 24
         with:
-          version: latest
+          version: "~> v2" # pin goreleaser to its v2 line (avoids the 'latest' lock warning)
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
