@@ -19,6 +19,7 @@ type Package struct {
 	Name        string   `yaml:"name"`
 	Brew        string   `yaml:"brew"`
 	Apt         string   `yaml:"apt"`
+	Dnf         string   `yaml:"dnf"`
 	Install     string   `yaml:"install"` // custom install command (cross-platform; bypasses brew/apt)
 	PostInstall string   `yaml:"post_install"`
 	Skip        []string `yaml:"skip"` // package managers to skip (e.g. ["apt"])
@@ -40,7 +41,7 @@ func (p Package) Skipped(manager string) bool {
 
 // allowedFields is the set of valid keys in a mapping-form package entry.
 var allowedFields = map[string]struct{}{
-	"name": {}, "brew": {}, "apt": {}, "install": {}, "post_install": {}, "skip": {},
+	"name": {}, "brew": {}, "apt": {}, "dnf": {}, "install": {}, "post_install": {}, "skip": {},
 }
 
 // UnmarshalYAML accepts either a scalar (logical name) or a mapping form.
@@ -62,6 +63,7 @@ func (p *Package) UnmarshalYAML(node *yaml.Node) error {
 		Name        string   `yaml:"name"`
 		Brew        string   `yaml:"brew"`
 		Apt         string   `yaml:"apt"`
+		Dnf         string   `yaml:"dnf"`
 		Install     string   `yaml:"install"`
 		PostInstall string   `yaml:"post_install"`
 		Skip        []string `yaml:"skip"`
@@ -72,7 +74,7 @@ func (p *Package) UnmarshalYAML(node *yaml.Node) error {
 	if raw.Name == "" {
 		return errors.New("package entry missing 'name'")
 	}
-	p.Name, p.Brew, p.Apt, p.Install, p.PostInstall, p.Skip = raw.Name, raw.Brew, raw.Apt, raw.Install, raw.PostInstall, raw.Skip
+	p.Name, p.Brew, p.Apt, p.Dnf, p.Install, p.PostInstall, p.Skip = raw.Name, raw.Brew, raw.Apt, raw.Dnf, raw.Install, raw.PostInstall, raw.Skip
 	return nil
 }
 

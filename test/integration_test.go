@@ -13,7 +13,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -79,7 +78,7 @@ func TestDeclaredPackagesInstalled(t *testing.T) {
 	profileRoot := filepath.Join(repo, "profiles")
 	profiles := selectProfiles(t, profileRoot)
 
-	mgr, err := pkg.Select(runtime.GOOS, pkg.ExecRunner{})
+	mgr, err := pkg.Select(pkg.ExecRunner{})
 	if err != nil {
 		t.Fatalf("select manager: %v", err)
 	}

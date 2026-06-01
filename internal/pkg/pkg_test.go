@@ -26,19 +26,23 @@ func (f *fakeRunner) Output(_ context.Context, name string, args ...string) ([]b
 	return nil, f.err
 }
 
-func TestSelect(t *testing.T) {
+func TestSelectWith(t *testing.T) {
+	// present maps the probe commands that "exist"; Select returns the first
+	// candidate in detection order (brew → apt → dnf).
 	tests := []struct {
-		goos    string
+		name    string
+		present map[string]bool
 		want    string
 		wantErr bool
 	}{
-		{goos: "darwin", want: "brew"},
-		{goos: "linux", want: "apt"},
-		{goos: "plan9", wantErr: true},
+		{name: "brew wins", present: map[string]bool{"brew": true, "apt-get": true}, want: "brew"},
+		{name: "apt when no brew", present: map[string]bool{"apt-get": true, "dnf": true}, want: "apt"},
+		{name: "dnf when only dnf", present: map[string]bool{"dnf": true}, want: "dnf"},
+		{name: "none", present: map[string]bool{}, wantErr: true},
 	}
 	for _, tt := range tests {
-		t.Run(tt.goos, func(t *testing.T) {
-			m, err := Select(tt.goos, &fakeRunner{})
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := selectWith(&fakeRunner{}, func(c string) bool { return tt.present[c] })
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected error")
@@ -52,6 +56,18 @@ func TestSelect(t *testing.T) {
 				t.Errorf("got %s, want %s", m.Name(), tt.want)
 			}
 		})
+	}
+}
+
+func TestDnfInstallUsesOverride(t *testing.T) {
+	f := &fakeRunner{}
+	pkgs := []manifest.Package{{Name: "fd", Dnf: "fd-find"}, {Name: "ripgrep"}}
+	if err := (dnfManager{r: f}).Install(context.Background(), pkgs); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(f.calls[0], " ")
+	if !strings.Contains(joined, "fd-find") || !strings.Contains(joined, "ripgrep") {
+		t.Errorf("dnf call missing expected names: %q", joined)
 	}
 }
 

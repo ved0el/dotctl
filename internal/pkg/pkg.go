@@ -40,17 +40,32 @@ type Manager interface {
 	IsInstalled(ctx context.Context, p manifest.Package) (bool, error)
 }
 
-// Select returns the Manager for the given GOOS, wired to run commands via r.
-// GOOS is a parameter (not read from runtime) so selection is unit-testable.
-func Select(goos string, r Runner) (Manager, error) {
-	switch goos {
-	case "darwin":
-		return brewManager{r: r}, nil
-	case "linux":
-		return aptManager{r: r}, nil
-	default:
-		return nil, fmt.Errorf("no supported package manager for %s", goos)
+// managerCandidates is the detection order: the first whose probe command is on
+// PATH wins. Probing the real environment (not GOOS) is what lets one Linux box
+// use apt and another use dnf without code changes.
+var managerCandidates = []struct {
+	probe string
+	make  func(Runner) Manager
+}{
+	{"brew", func(r Runner) Manager { return brewManager{r: r} }},
+	{"apt-get", func(r Runner) Manager { return aptManager{r: r} }},
+	{"dnf", func(r Runner) Manager { return dnfManager{r: r} }},
+}
+
+// Select detects the platform package manager actually present and wires it to
+// run commands via r.
+func Select(r Runner) (Manager, error) {
+	return selectWith(r, func(cmd string) bool { _, err := exec.LookPath(cmd); return err == nil })
+}
+
+// selectWith is Select with an injectable command-probe, for testing.
+func selectWith(r Runner, has func(string) bool) (Manager, error) {
+	for _, c := range managerCandidates {
+		if has(c.probe) {
+			return c.make(r), nil
+		}
 	}
+	return nil, fmt.Errorf("no supported package manager found (need one of brew, apt, dnf)")
 }
 
 // supported drops packages marked to skip the named manager.

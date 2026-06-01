@@ -9,7 +9,6 @@ import (
 	"github.com/ved0el/dotctl/internal/machine"
 	"github.com/ved0el/dotctl/internal/manifest"
 	"github.com/ved0el/dotctl/internal/pkg"
-	"github.com/ved0el/dotctl/internal/platform"
 )
 
 func newStatusCmd(g *globals) *cobra.Command {
@@ -61,7 +60,7 @@ func runStatus(cmd *cobra.Command, g *globals) error {
 	if err != nil {
 		return err
 	}
-	mgr, mgrErr := pkg.Select(platform.OS(), pkg.ExecRunner{})
+	mgr, mgrErr := pkg.Select(pkg.ExecRunner{})
 	missingPkgs := 0
 	for _, p := range pkgs {
 		if !packageInstalled(cmd, mgr, mgrErr, p) {

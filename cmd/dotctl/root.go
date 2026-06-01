@@ -131,7 +131,7 @@ func (g *globals) newRunner(log *console.Logger) pkg.Runner {
 // share the same dry-ness so a dry run never executes a real install.
 func (g *globals) deps(log *console.Logger, repo string, profiles []string, cfg machine.Config) (engine.Deps, error) {
 	runner := g.newRunner(log)
-	mgr, err := pkg.Select(platform.OS(), runner)
+	mgr, err := pkg.Select(runner)
 	if err != nil {
 		return engine.Deps{}, err
 	}

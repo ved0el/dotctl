@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ved0el/dotctl/internal/machine"
 	"github.com/ved0el/dotctl/internal/pkg"
-	"github.com/ved0el/dotctl/internal/platform"
 )
 
 func newPkgCmd(g *globals) *cobra.Command {
@@ -32,7 +31,7 @@ func newPkgCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			mgr, err := pkg.Select(platform.OS(), g.newRunner(log))
+			mgr, err := pkg.Select(g.newRunner(log))
 			if err != nil {
 				return err
 			}

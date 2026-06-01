@@ -47,7 +47,7 @@ func runDoctor(g *globals) error {
 	check(pkg.CommandExists("dotctl"), "dotctl is on PATH", "dotctl not on PATH — add ~/.local/bin to PATH")
 	check(pathHasLocalBin(home), "~/.local/bin is on PATH", "~/.local/bin not on PATH — self-installed tools (mise, sheldon) won't be found")
 
-	if mgr, err := pkg.Select(platform.OS(), pkg.ExecRunner{}); err == nil {
+	if mgr, err := pkg.Select(pkg.ExecRunner{}); err == nil {
 		check(mgr.Available(), "package manager available: "+mgr.Name(), "package manager not found on PATH: "+mgr.Name())
 	} else {
 		problems++
