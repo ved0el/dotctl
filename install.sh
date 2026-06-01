@@ -73,7 +73,9 @@ resolve_version() {
 }
 
 install_binary() {
-	bindir="$DOTCTL_REPO/.bin"
+	# Install to ~/.local/bin so `dotctl` is on PATH (the base profile's zshrc
+	# adds it). Anything else leaves `dotctl: command not found` after install.
+	bindir="$HOME/.local/bin"
 	mkdir -p "$bindir"
 	BIN="$bindir/dotctl"
 	asset="dotctl_${os}_${arch}"
@@ -109,6 +111,20 @@ main() {
 	else
 		"$BIN" init
 	fi
+
+	reload_shell
+}
+
+# reload_shell starts a fresh login shell so the just-linked config takes effect
+# (and ~/.local/bin — where dotctl now lives — lands on PATH). Falls back to a
+# hint when there's no terminal to attach to (piped/CI runs).
+reload_shell() {
+	shell="${SHELL:-/bin/sh}"
+	log "done. reloading your shell to apply the new config..."
+	if [ -t 1 ] && [ -r /dev/tty ]; then
+		exec "$shell" -l </dev/tty
+	fi
+	log "no interactive terminal — open a new shell (or run: exec \"$shell\" -l) to finish."
 }
 
 main

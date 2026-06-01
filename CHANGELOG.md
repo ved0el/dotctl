@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-06-02
+
+### Fixed
+
+- `install.sh` now installs the `dotctl` binary to `~/.local/bin` (on `PATH` via
+  the base profile's zshrc) instead of `~/.dotfiles/.bin`, fixing
+  `dotctl: command not found` after a fresh install.
+- `install.sh` reloads the shell (`exec $SHELL -l`) once setup finishes, so the
+  newly linked config — and `dotctl` itself — are available immediately, with a
+  graceful hint when there's no interactive terminal.
+
 ## [0.1.0] — 2026-06-02
 
 First release. A profile-based dotfiles & environment manager: a typed Go CLI
@@ -36,5 +47,6 @@ fronted by a POSIX-sh installer that converges a machine to a declarative repo.
   smoke) and dual-OS E2E (real bootstrap + integration tests); goreleaser
   publishes `darwin`/`linux` × `arm64`/`amd64` binaries with checksums.
 
-[Unreleased]: https://github.com/ved0el/dotctl/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ved0el/dotctl/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ved0el/dotctl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ved0el/dotctl/releases/tag/v0.1.0

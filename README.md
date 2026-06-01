@@ -14,7 +14,7 @@
 
 </div>
 
-> **Early release (`v0.1.0`).** Core install/link/package flow is stable and
+> **Early release (`v0.1.1`).** Core install/link/package flow is stable and
 > CI-verified on macOS + Linux. Expect additive changes before `v1.0.0`.
 
 `dotctl` is a profile-based dotfiles and environment manager. You describe your desired
@@ -57,7 +57,7 @@ curl -fsSL https://tinyurl.com/get-dotctl | DOTCTL_PROFILES=base,tools,develop s
 
 ```sh
 # Pin a version, or use the canonical URL instead of the short link:
-curl -fsSL https://raw.githubusercontent.com/ved0el/dotctl/main/install.sh | DOTCTL_VERSION=v0.1.0 sh
+curl -fsSL https://raw.githubusercontent.com/ved0el/dotctl/main/install.sh | DOTCTL_VERSION=v0.1.1 sh
 
 # Windows (best-effort, Tier 2):
 irm https://raw.githubusercontent.com/ved0el/dotctl/main/install.ps1 | iex
