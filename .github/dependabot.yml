@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # Keep GitHub Actions current (and convert tags → pinned SHAs as it updates).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+  # Go module dependencies.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build

@@ -16,5 +16,5 @@ packages:
     install: "curl --proto '=https' -fLsS https://rossmacarthur.github.io/install/crate.sh | bash -s -- --repo rossmacarthur/sheldon --to ~/.local/bin"
     post_install: "sheldon lock"
   - name: mise # runtime & CLI-tool manager (drives tools/ and develop/)
-    install: "curl https://mise.run | sh"
+    install: "curl --proto '=https' --tlsv1.2 -fsSL https://mise.run | sh"
     post_install: "mise install --yes"

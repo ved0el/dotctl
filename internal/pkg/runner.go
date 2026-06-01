@@ -36,12 +36,18 @@ func (ExecRunner) Output(ctx context.Context, name string, args ...string) ([]by
 // DryRunner logs the command it would run and performs no execution.
 type DryRunner struct{ Log *console.Logger }
 
-func (d DryRunner) Run(_ context.Context, name string, args ...string) error {
+func (d DryRunner) Run(ctx context.Context, name string, args ...string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	d.Log.Plan("run", commandString(name, args))
 	return nil
 }
 
-func (d DryRunner) Output(_ context.Context, name string, args ...string) ([]byte, error) {
+func (d DryRunner) Output(ctx context.Context, name string, args ...string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	d.Log.Plan("run", commandString(name, args))
 	return nil, nil
 }

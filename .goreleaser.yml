@@ -27,5 +27,19 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Keyless cosign signature over checksums.txt — signs every artifact transitively.
+# install.sh verifies it when cosign is present (the sha256 check is the always-on
+# gate). Requires cosign + id-token:write in the release workflow.
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    output: true
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - --yes
+
 # `release:` is intentionally omitted — goreleaser auto-detects the GitHub
 # owner/repo from the git remote, so renaming the repo needs no change here.
