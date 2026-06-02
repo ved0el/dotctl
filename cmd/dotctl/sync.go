@@ -48,9 +48,6 @@ func newSaveCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if msg == "" {
-				msg = "chore: update dotfiles"
-			}
 			runner := g.newRunner(log)
 
 			if g.dryRun {
@@ -75,6 +72,6 @@ func newSaveCmd(g *globals) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&msg, "message", "m", "", "commit message")
+	cmd.Flags().StringVarP(&msg, "message", "m", "chore: update dotfiles", "commit message")
 	return cmd
 }

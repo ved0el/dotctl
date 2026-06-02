@@ -74,6 +74,12 @@ func mutateProfiles(g *globals, names []string, add bool) error {
 			seen[p] = true
 		}
 	}
+	// Empty profiles is the "not bootstrapped" sentinel (apply/sync refuse it), so
+	// removing the last one would leave a machine that status calls drifted but
+	// apply won't converge. Refuse it with actionable guidance instead.
+	if !add && len(out) == 0 {
+		return fmt.Errorf("refusing to remove the last profile; a machine needs at least one (use 'dotctl profile add' or re-run 'dotctl init --profiles ...')")
+	}
 	cx.Cfg.Profiles = out
 	if cx.Cfg.Repo == "" {
 		cx.Cfg.Repo = cx.Repo
@@ -82,5 +88,15 @@ func mutateProfiles(g *globals, names []string, add bool) error {
 		return err
 	}
 	g.logger().OK("profiles: [%s] — run 'dotctl apply' to converge", strings.Join(out, ", "))
+	return nil
+}
+
+// validateProfileName rejects names that would escape the profiles/ tree when
+// joined into a path (separators, "..", "."), so `add`/`pkg add`/`pkg rm` can't
+// write outside the repo via a crafted --profile value.
+func validateProfileName(name string) error {
+	if name == "" || name == "." || name == ".." || name != filepath.Base(name) {
+		return fmt.Errorf("invalid profile name %q (must be a single path element)", name)
+	}
 	return nil
 }

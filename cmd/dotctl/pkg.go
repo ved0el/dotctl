@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/ved0el/dotctl/internal/engine"
 	"github.com/ved0el/dotctl/internal/machine"
 	"github.com/ved0el/dotctl/internal/manifest"
 	"github.com/ved0el/dotctl/internal/pkg"
@@ -33,12 +35,18 @@ func newPkgCmd(g *globals) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			mgr, err := pkg.Select(g.newRunner(log))
+			runner := g.newRunner(log)
+			mgr, err := pkg.Select(runner)
 			if err != nil {
 				return err
 			}
-			log.Step("installing %d package(s) via %s", len(pkgs), mgr.Name())
-			return mgr.Install(cmd.Context(), pkgs)
+			// Reuse the engine's custom/managed split so a custom-install package
+			// (sheldon, mise) runs its own command instead of being misrouted to
+			// the platform manager (brew/apt/dnf).
+			if _, failed := engine.InstallSet(cmd.Context(), pkgs, mgr, runner, log); len(failed) > 0 {
+				return errors.Join(failed...)
+			}
+			return nil
 		},
 	}
 	var addProfile string
@@ -72,6 +80,9 @@ func pkgMutate(cmd *cobra.Command, g *globals, profile string, names []string, a
 	if err != nil {
 		return err
 	}
+	if err := validateProfileName(profile); err != nil {
+		return err
+	}
 	profileDir := filepath.Join(cx.Repo, machine.ProfilesSubdir, profile)
 	pkgs, err := manifest.WalkProfile(profileDir)
 	if err != nil {
@@ -97,18 +108,23 @@ func pkgMutate(cmd *cobra.Command, g *globals, profile string, names []string, a
 			log.Plan("add packages", fmt.Sprintf("%v → %s", names, profile))
 			return nil
 		}
+		if len(added) == 0 {
+			log.OK("all of %v already declared in %s — nothing to do", names, profile)
+			return nil
+		}
 		if err := manifest.WriteProfile(profileDir, pkgs); err != nil {
 			return err
 		}
-		log.OK("added %v to %s", names, profile)
-		if len(added) > 0 {
-			mgr, err := pkg.Select(g.newRunner(log))
-			if err != nil {
-				return err
-			}
-			return mgr.Install(cmd.Context(), added)
+		addedNames := make([]string, len(added))
+		for i, p := range added {
+			addedNames[i] = p.Name
 		}
-		return nil
+		log.OK("added %v to %s", addedNames, profile)
+		mgr, err := pkg.Select(g.newRunner(log))
+		if err != nil {
+			return err
+		}
+		return mgr.Install(cmd.Context(), added)
 	}
 
 	remove := map[string]bool{}
