@@ -11,6 +11,10 @@ set -eu
 # (owner/name) or set REPO_URL directly — nothing else below hardcodes it.
 REPO_SLUG="${REPO_SLUG:-ved0el/dotctl}"
 REPO_URL="${REPO_URL:-https://github.com/$REPO_SLUG}"
+# Workflow that signs releases. MUST match the filename in .github/workflows/ —
+# it is embedded in the cosign certificate identity below, so if release.yml is
+# renamed, update this in the same commit or signature verification will fail.
+COSIGN_WORKFLOW="${COSIGN_WORKFLOW:-release.yml}"
 DOTCTL_REPO="${DOTCTL_REPO:-$HOME/.dotfiles}"
 DOTCTL_VERSION="${DOTCTL_VERSION:-latest}"
 DOTCTL_PROFILES="${DOTCTL_PROFILES:-}"
@@ -98,7 +102,7 @@ cosign_verify() {
 		|| die "cosign present but checksums.txt.sig could not be fetched — refusing to downgrade to checksum-only"
 	( cd "$TMP" && cosign verify-blob \
 		--certificate checksums.txt.pem --signature checksums.txt.sig \
-		--certificate-identity "https://github.com/$REPO_SLUG/.github/workflows/release.yml@refs/tags/$DOTCTL_VERSION" \
+		--certificate-identity "https://github.com/$REPO_SLUG/.github/workflows/$COSIGN_WORKFLOW@refs/tags/$DOTCTL_VERSION" \
 		--certificate-oidc-issuer https://token.actions.githubusercontent.com \
 		checksums.txt ) || die "cosign signature verification failed"
 	log "cosign signature verified"
