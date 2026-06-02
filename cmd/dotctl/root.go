@@ -41,6 +41,7 @@ func newRootCmd() *cobra.Command {
 		newSaveCmd(g),
 		newStatusCmd(g),
 		newAddCmd(g),
+		newEditCmd(g),
 		newDoctorCmd(g),
 		newProfileCmd(g),
 		newNewCmd(g),

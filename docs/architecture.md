@@ -76,6 +76,7 @@ forward (apply) and reversed (`add`), `link.Status` for `status`/`doctor`, the
 | `dotctl apply` | Re-converge this machine (no prompts). |
 | `dotctl status` (`st`) | Drift report (links + packages); bare `dotctl` runs it; non-zero exit on drift. |
 | `dotctl add <path>…` | Adopt a file/dir into a profile (the link engine, reversed). |
+| `dotctl edit <name>` | Resolve a logical name to its repo source (via `link.Targets`) and open it in `$EDITOR`. |
 | `dotctl sync` | `git pull --ff-only` then reconcile. |
 | `dotctl save -m "…"` | `git add -A && commit && push` (clean-tree aware). |
 | `dotctl doctor` | Health checks: PATH, `~/.local/bin`, package manager, broken links, repo. |
@@ -90,7 +91,7 @@ forward (apply) and reversed (`add`), `link.Status` for `status`/`doctor`, the
 
 Templated file content (per-machine/OS values) · secret management (age/gpg) ·
 `status` content diff · machine classes/tags · `dotctl uninstall`/teardown ·
-frozen/versioned config schema · `dotctl edit` · `dotctl upgrade` · self-update ·
+frozen/versioned config schema · `dotctl upgrade` · self-update ·
 Windows Tier 2 (install.ps1, scoop).
 
 ## Symlink convention (modified Stow)
@@ -231,8 +232,8 @@ probe-based manager selection, and the machine-local overlay. Still ahead:
 
 - **Backends / platform:** `scoop` + Windows Tier 2 (`install.ps1`, Windows symlink
   semantics — Developer Mode / junction fallback).
-- **Commands:** `edit` (open a managed file by logical name) and `upgrade`
-  (pull + package upgrades + apply). See *Future (v1.0 and beyond)* above for the
-  longer list (templating, secrets, `uninstall`, self-update).
+- **Commands:** `upgrade` (pull + package upgrades + apply). See *Future (v1.0
+  and beyond)* above for the longer list (templating, secrets, `uninstall`,
+  self-update).
 - Optional private-repo sync for local config + secrets (`local_repo` in `machine.yaml`).
 - Auto-detect profiles from OS/hostname/env as a bootstrap suggestion.

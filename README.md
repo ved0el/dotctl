@@ -77,6 +77,7 @@ clones the repo to `~/.dotfiles`, downloads the matching `dotctl` binary, and ru
 | `dotctl apply` | Re-converge this machine to its declared config (no prompts). |
 | `dotctl status` (`st`) | Show drift: links/packages present, missing, or wrong. Bare `dotctl` runs this; exits non-zero on drift. |
 | `dotctl add <path>…` | Adopt existing dotfiles into a profile (move into the repo + symlink back). |
+| `dotctl edit <name>` | Open a managed dotfile by its logical name (e.g. `zshrc`) in `$EDITOR`. |
 | `dotctl sync` | `git pull` the repo, then re-converge. |
 | `dotctl save -m "…"` | Commit and push your dotfiles changes. |
 | `dotctl doctor` | Diagnose environment problems (PATH, package manager, broken links). |

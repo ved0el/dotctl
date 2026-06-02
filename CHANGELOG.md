@@ -6,6 +6,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`dotctl edit <name>`** — open a managed dotfile by its logical name (e.g.
+  `zshrc`, or a leaf basename like `tools.toml`) in `$EDITOR`, resolved through the
+  link convention; edits land on the repo source, ready to `save`.
+
+### Changed
+
+- CI: action pins reformatted so the version is the sole trailing comment token,
+  keeping Dependabot's version tracking accurate (the `cosign-installer` label,
+  which had drifted to `v3.9.1` while pinned to the v4.1.2 SHA, is corrected).
+
 ## [0.3.1] — 2026-06-02
 
 ### Fixed
