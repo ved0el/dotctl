@@ -84,16 +84,21 @@ resolve_version() {
 	esac
 }
 
-# cosign_verify best-effort verifies the checksums signature when cosign is
-# present (most bare machines won't have it — the sha256 check below is the
-# guaranteed gate; this is a stronger check for those who can run it).
+# cosign_verify verifies the checksums signature when cosign is present. Most
+# bare machines won't have it — the sha256 check below is the guaranteed gate;
+# this is a stronger check for those who can run it. When cosign IS present we
+# fail closed: a missing signature artifact is treated as tampering, not a reason
+# to silently downgrade to checksum-only. The identity is pinned to the exact
+# release workflow + tag (not a loose regexp), so only that workflow can sign.
 cosign_verify() {
 	need cosign || { log "cosign not installed — skipping signature check (checksums still verified)"; return 0; }
-	fetch "$1/checksums.txt.pem" -o "$TMP/checksums.txt.pem" || return 0
-	fetch "$1/checksums.txt.sig" -o "$TMP/checksums.txt.sig" || return 0
+	fetch "$1/checksums.txt.pem" -o "$TMP/checksums.txt.pem" \
+		|| die "cosign present but checksums.txt.pem could not be fetched — refusing to downgrade to checksum-only"
+	fetch "$1/checksums.txt.sig" -o "$TMP/checksums.txt.sig" \
+		|| die "cosign present but checksums.txt.sig could not be fetched — refusing to downgrade to checksum-only"
 	( cd "$TMP" && cosign verify-blob \
 		--certificate checksums.txt.pem --signature checksums.txt.sig \
-		--certificate-identity-regexp "https://github.com/$REPO_SLUG" \
+		--certificate-identity "https://github.com/$REPO_SLUG/.github/workflows/release.yml@refs/tags/$DOTCTL_VERSION" \
 		--certificate-oidc-issuer https://token.actions.githubusercontent.com \
 		checksums.txt ) || die "cosign signature verification failed"
 	log "cosign signature verified"
@@ -112,7 +117,10 @@ install_binary() {
 	if fetch "$base/$asset" -o "$TMP/dotctl" && fetch "$base/checksums.txt" -o "$TMP/checksums.txt"; then
 		cosign_verify "$base"
 		# Verify only the asset we downloaded (checksums.txt lists every binary).
+		# Assert the entry exists so an empty list can't fail open through a
+		# sha tool that accepts empty input (POSIX sh has no pipefail here).
 		grep " ${asset}\$" "$TMP/checksums.txt" | sed "s/${asset}/dotctl/" >"$TMP/sum"
+		[ -s "$TMP/sum" ] || die "checksums.txt has no entry for $asset"
 		( cd "$TMP" && sha_check <sum ) || die "checksum verification failed"
 		chmod +x "$TMP/dotctl"
 		mv "$TMP/dotctl" "$BIN"
