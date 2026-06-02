@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/ved0el/dotctl/internal/manifest"
 )
@@ -42,9 +41,8 @@ func (m dnfManager) IsInstalled(ctx context.Context, p manifest.Package) (bool, 
 	if name == "" {
 		name = p.Name
 	}
-	out, err := m.r.Output(ctx, "rpm", "-q", name)
-	if err != nil {
-		return false, nil // not installed (rpm -q exits non-zero)
-	}
-	return !strings.Contains(string(out), "not installed"), nil
+	// rpm -q signals presence via exit code: 0 + NVRA when installed, non-zero +
+	// "package <name> is not installed" when absent. The exit code is sufficient.
+	_, err := m.r.Output(ctx, "rpm", "-q", name)
+	return err == nil, nil
 }

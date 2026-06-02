@@ -114,6 +114,17 @@ func (g *globals) newLinker(log *console.Logger, repo string, profiles []string,
 	return l, nil
 }
 
+// newOverlayLinker builds an UNGATED linker for the machine-local overlay: its
+// files are user-authored and machine-specific, so every one should link even for
+// tools not declared in a synced profile (a nil Gate means link everything).
+func (g *globals) newOverlayLinker(log *console.Logger) (*link.Linker, error) {
+	home, err := platform.HomeDir()
+	if err != nil {
+		return nil, err
+	}
+	return link.NewLinker(home, link.OsFS{}, g.dryRun, log), nil
+}
+
 // toolGate reports whether a config/<name> should be linked: true if the tool is
 // declared by the selected profiles, or its command is on PATH.
 func toolGate(repo string, profiles []string, cfg machine.Config) func(string) bool {
@@ -143,5 +154,9 @@ func (g *globals) deps(log *console.Logger, repo string, profiles []string, cfg 
 	if err != nil {
 		return engine.Deps{}, err
 	}
-	return engine.Deps{Linker: linker, Manager: mgr, Runner: runner, Log: log}, nil
+	overlay, err := g.newOverlayLinker(log)
+	if err != nil {
+		return engine.Deps{}, err
+	}
+	return engine.Deps{Linker: linker, Manager: mgr, Runner: runner, Log: log, Overlay: overlay}, nil
 }
