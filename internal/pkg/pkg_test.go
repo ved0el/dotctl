@@ -194,6 +194,7 @@ func TestAptIsInstalled(t *testing.T) {
 		{"installed", "install ok installed", nil, true},
 		{"config-files only", "deinstall ok config-files", nil, false},
 		{"query error means absent", "", errFake, false},
+		{"empty output (dry-run) assumed present", "", nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

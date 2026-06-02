@@ -19,11 +19,11 @@ help: ## Show this help
 build: ## Build the dotctl binary
 	go build $(LDFLAGS) -o $(BINARY) ./cmd/dotctl
 
-test: ## Run unit tests
-	go test ./...
+test: ## Run unit tests (with the race detector)
+	go test -race ./...
 
-cover: ## Run tests with coverage
-	go test -cover ./...
+cover: ## Run tests with coverage (and the race detector)
+	go test -race -cover ./...
 
 lint: ## Run linters (Go + shell)
 	golangci-lint run

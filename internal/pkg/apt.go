@@ -63,5 +63,11 @@ func (m aptManager) IsInstalled(ctx context.Context, p manifest.Package) (bool, 
 	if err != nil {
 		return false, nil // unknown package → not installed
 	}
+	// A real dpkg-query success always prints a status line; empty output with no
+	// error only happens under DryRunner (a logged no-op). Treat it as present so a
+	// dry-run upgrade plan isn't silently empty — matching brew/dnf (err == nil).
+	if len(out) == 0 {
+		return true, nil
+	}
 	return strings.Contains(string(out), "install ok installed"), nil
 }

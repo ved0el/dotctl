@@ -229,6 +229,11 @@ func UpgradeSet(ctx context.Context, pkgs []manifest.Package, mgr pkg.Manager, r
 			}
 			continue
 		}
+		// present reflects pre-upgrade presence, intentionally NOT upgrade success:
+		// a package still at its old version is present, so its post_install hook
+		// (mise install, sheldon lock) should still run even if the batch upgrade
+		// below fails. This is the deliberate inverse of InstallSet, where a failed
+		// install means the package is truly absent and its hook must be skipped.
 		ok, _ := mgr.IsInstalled(ctx, p)
 		present[p.Name] = ok
 		if ok {

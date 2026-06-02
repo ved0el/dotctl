@@ -311,6 +311,40 @@ func TestUpgradeSkipsNotInstalledManaged(t *testing.T) {
 	}
 }
 
+// TestUpgradeRunsHookEvenIfUpgradeFails pins the intentional inverse of InstallSet:
+// a package present before the upgrade keeps its hook even if the batch fails (it's
+// still installed, just not upgraded).
+func TestUpgradeRunsHookEvenIfUpgradeFails(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - name: tmux\n    post_install: \"echo hi\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// tmux is installed, but the upgrade batch fails.
+	fm := &fakeManager{installErr: errors.New("boom"), installedOK: true}
+	fr := &fakeRunner{}
+	err := Upgrade(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: fm, Runner: fr, Log: console.New(&bytes.Buffer{}, false)})
+	if err == nil {
+		t.Error("expected a non-nil error when the upgrade batch fails")
+	}
+	var sawHook bool
+	for _, c := range fr.calls {
+		if strings.Contains(strings.Join(c, " "), "echo hi") {
+			sawHook = true
+		}
+	}
+	if !sawHook {
+		t.Error("hook must still run for a present package even when its upgrade fails")
+	}
+}
+
 func TestRunCancelled(t *testing.T) {
 	repo := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(repo, "profiles", "base"), 0o755); err != nil {
