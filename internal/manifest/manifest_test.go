@@ -1,8 +1,10 @@
 package manifest
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -69,6 +71,53 @@ func TestSkipped(t *testing.T) {
 	}
 	if p.Skipped("brew") {
 		t.Error("expected Skipped(brew) = false")
+	}
+}
+
+// TestWriteProfileRoundTrip locks the MarshalYAML/WriteProfile → ParseFile write
+// path used by `dotctl pkg add/rm`: every package shape must survive a round trip
+// unchanged, or a future field added to one of the three hand-maintained
+// structures (MarshalYAML, allowedFields, the UnmarshalYAML raw struct) would
+// silently corrupt a user's packages.yaml.
+func TestWriteProfileRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		pkgs []Package
+	}{
+		{"plain names", []Package{{Name: "ripgrep"}, {Name: "bat"}}},
+		{"per-manager overrides", []Package{{Name: "fd", Apt: "fd-find", Dnf: "fd-find"}}},
+		{"custom install + hook + skip", []Package{{Name: "mise", Install: "curl x | sh", PostInstall: "mise install", Skip: []string{"apt"}}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := WriteProfile(dir, tt.pkgs); err != nil {
+				t.Fatalf("WriteProfile: %v", err)
+			}
+			got, err := ParseFile(filepath.Join(dir, "packages.yaml"))
+			if err != nil {
+				t.Fatalf("ParseFile: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.pkgs) {
+				t.Errorf("round-trip mismatch:\n got  %+v\n want %+v", got, tt.pkgs)
+			}
+		})
+	}
+}
+
+// TestWriteProfilePlainPackageIsBareScalar asserts a plain package serializes as
+// a bare scalar (`- ripgrep`), not a `- name: ripgrep` mapping.
+func TestWriteProfilePlainPackageIsBareScalar(t *testing.T) {
+	dir := t.TempDir()
+	if err := WriteProfile(dir, []Package{{Name: "ripgrep"}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "packages.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "- ripgrep") || strings.Contains(string(data), "name:") {
+		t.Errorf("plain package should be a bare scalar, got:\n%s", data)
 	}
 }
 
