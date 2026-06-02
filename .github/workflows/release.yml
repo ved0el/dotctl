@@ -23,8 +23,11 @@ jobs:
       - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: "1.26"
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v3.9.1 — provides cosign for keyless signing
-      - uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2 (Node 24)
+      # cosign for keyless signing. Version must be the sole trailing token so
+      # Dependabot keeps the label in sync with the SHA (a suffix here once didn't).
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      # goreleaser-action v7 runs on Node 24.
+      - uses: goreleaser/goreleaser-action@5daf1e915a5f0af01ddbcd89a43b8061ff4f1a89 # v7.2.2
         with:
           version: "~> v2" # pin goreleaser to its v2 line (avoids the 'latest' lock warning)
           args: release --clean
