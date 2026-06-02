@@ -32,6 +32,10 @@ checksum:
 # gate). Requires cosign + id-token:write in the release workflow.
 signs:
   - cmd: cosign
+    # certificate: names the keyless cert output so goreleaser tracks and uploads
+    # checksums.txt.pem. Without it, ${certificate} is empty and the cert is never
+    # published — leaving the keyless signature unverifiable (install.sh needs it).
+    certificate: "${artifact}.pem"
     artifacts: checksum
     output: true
     args:

@@ -6,6 +6,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-06-02
+
+### Fixed
+
+- **Release signing now publishes the cosign certificate** (`checksums.txt.pem`).
+  The goreleaser `signs` block passed `--output-certificate=${certificate}` but
+  never declared the `certificate:` filename, so the certificate was never uploaded
+  and the keyless signature could not be verified. With the cert published,
+  `install.sh`'s fail-closed cosign check succeeds wherever cosign is installed
+  (v0.3.0 shipped without it).
+
 ## [0.3.0] — 2026-06-02
 
 The daily-driver release: everything needed to live in dotctl day to day —
@@ -101,7 +112,8 @@ fronted by a POSIX-sh installer that converges a machine to a declarative repo.
   smoke) and dual-OS E2E (real bootstrap + integration tests); goreleaser
   publishes `darwin`/`linux` × `arm64`/`amd64` binaries with checksums.
 
-[Unreleased]: https://github.com/ved0el/dotctl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ved0el/dotctl/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ved0el/dotctl/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ved0el/dotctl/compare/v0.1.1...v0.3.0
 [0.1.1]: https://github.com/ved0el/dotctl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ved0el/dotctl/releases/tag/v0.1.0
