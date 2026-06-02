@@ -35,6 +35,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   rather than proceeding unverified, and a best-effort cosign signature check.
 - Releases are **cosign-signed** (keyless) over `checksums.txt`; Dependabot watches
   GitHub Actions and Go modules.
+- CI/release workflows **pin third-party actions to commit SHAs** (tag in a trailing
+  comment) to close the mutable-tag supply-chain gap; Dependabot bumps the pins.
 
 ## [0.2.0] — 2026-06-02
 
