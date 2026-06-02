@@ -33,10 +33,10 @@ Each `internal/` package has a single responsibility and is independently testab
 | `manifest` | Parse `packages.yaml` (yaml.v3, `KnownFields`); walk profile trees | — |
 | `machine` | Read/write `machine.yaml`; resolve `base + [profiles]`; package add/exclude math | manifest |
 | `link` | Stow-convention symlink engine; consumes an injected filesystem + clock; one backup dir per run | platform |
-| `pkg` | `Manager` interface + `brew`/`apt` backends (dnf/scoop later); shells out via the `Runner` seam | platform, manifest |
-| `engine` | The ordered pipeline `resolve → install → link → hooks` — the home of orchestration | machine, link, pkg |
+| `pkg` | `Manager` interface + `brew`/`apt`/`dnf` backends (scoop later), selected by PATH probe; shells out via the `Runner` seam | platform, manifest |
+| `engine` | The ordered pipeline `resolve → install → link → hooks` — the home of orchestration; `InstallSet` is the shared install split reused by `pkg install` | machine, link, pkg |
 
-(`sync` — `git pull` then delegate to `engine` — is deferred; see below.)
+(`engine` is consumed by `init`/`apply`/`sync`; `sync` runs a `git pull --ff-only` before reconciling, and the machine-local overlay links last through an ungated linker.)
 
 ### Internal seams & key decisions
 
@@ -225,11 +225,14 @@ bootstrap shim, symlink semantics, and the Scoop backend — never the Unix path
 
 ## Deferred / future
 
-- **Backends:** `dnf` (Fedora/RHEL), `scoop` (Windows).
-- **Commands:** the v0.2 daily drivers (`add`, `status`, `edit`, `sync`, `save`, `pkg add/rm`,
-  `completion`) and the occasional set (`upgrade`, `profile`, `doctor`, `init`).
-- **Windows (Tier 2):** `install.ps1` bootstrap + Windows symlink semantics (Developer
-  Mode / junction fallback).
-- **Local overlay** (`~/.config/dotctl/local/`) and the `.local` sourcing convention.
+Shipped since v0.1: the full daily-driver command set (`status`, `add`, `sync`,
+`save`, `doctor`, `profile`, `pkg add/rm`, `new`, `completion`), the `dnf` backend,
+probe-based manager selection, and the machine-local overlay. Still ahead:
+
+- **Backends / platform:** `scoop` + Windows Tier 2 (`install.ps1`, Windows symlink
+  semantics — Developer Mode / junction fallback).
+- **Commands:** `edit` (open a managed file by logical name) and `upgrade`
+  (pull + package upgrades + apply). See *Future (v1.0 and beyond)* above for the
+  longer list (templating, secrets, `uninstall`, self-update).
 - Optional private-repo sync for local config + secrets (`local_repo` in `machine.yaml`).
-- Auto-detect profiles from OS/hostname/env as a `bootstrap` suggestion.
+- Auto-detect profiles from OS/hostname/env as a bootstrap suggestion.
