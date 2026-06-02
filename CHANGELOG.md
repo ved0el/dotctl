@@ -8,62 +8,57 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] — 2026-06-02
 
-### Added
-
-- **`dotctl sync`** (git pull + reconcile) and **`dotctl save`** (commit + push,
-  clean-tree aware) — the write-back loop.
-- **`dotctl profile ls/add/rm`** — manage profile selection in machine.yaml
-  (validated and persisted atomically).
-- **`dotctl pkg add/rm`** — mutate a profile's `packages.yaml` (add also installs).
-- **`dotctl new`** — scaffold a fresh dotfiles repo.
-- **Machine-local overlay**: `~/.config/dotctl/local/` is linked last and wins on
-  conflict, for files unique to one machine.
-- **dnf backend** and a `dnf:` per-manager name override.
-
-### Changed
-
-- The package manager is now **detected by probe** (brew → apt → dnf) instead of
-  mapping GOOS → manager, so a Linux box uses whatever it actually has.
-- **machine.yaml** is validated: unknown keys are rejected (`KnownFields`), the
-  selected profiles must exist, and writes are atomic (temp + rename).
-- The reconcile pipeline honors context cancellation (clean Ctrl-C).
-
-### Security
-
-- `install.sh` hardened: `--proto '=https' --tlsv1.2` fetches, trap-based temp
-  cleanup, redirect-based version resolution (no JSON scraping) that hard-fails
-  rather than proceeding unverified, and a best-effort cosign signature check.
-- Releases are **cosign-signed** (keyless) over `checksums.txt`; Dependabot watches
-  GitHub Actions and Go modules.
-- CI/release workflows **pin third-party actions to commit SHAs** (tag in a trailing
-  comment) to close the mutable-tag supply-chain gap; Dependabot bumps the pins.
-
-## [0.2.0] — 2026-06-02
+The daily-driver release: everything needed to live in dotctl day to day —
+checking drift, adopting files, syncing, and managing profiles/packages — on a
+hardened, signed install path. Supersedes the unreleased `0.1.2`/`0.2.0`
+development versions, which ship together here.
 
 ### Added
 
 - **`dotctl status`** (`st`) — read-only drift report; bare `dotctl` runs it and
   exits non-zero on drift (shell-prompt friendly).
 - **`dotctl add <path>…`** — adopt existing dotfiles into a profile (reverse-link:
-  move into the repo, then symlink back).
+  move into the repo, then symlink back). Directories adopt **leaf-by-leaf**,
+  matching the link convention, so the directory itself stays real.
 - **`dotctl doctor`** — health checks (PATH, `~/.local/bin`, package manager,
   broken links, repo state).
+- **`dotctl sync`** (git pull + reconcile) and **`dotctl save`** (commit + push,
+  clean-tree aware) — the write-back loop.
+- **`dotctl profile ls/add/rm`** — manage profile selection in machine.yaml
+  (validated, persisted atomically; refuses to remove the last profile).
+- **`dotctl pkg add/rm`** — mutate a profile's `packages.yaml` (add also installs).
+- **`dotctl new`** — scaffold a fresh dotfiles repo.
+- **Machine-local overlay**: `~/.config/dotctl/local/` is linked last and wins on
+  conflict, through an **ungated** linker, for files unique to one machine.
+- **dnf backend** and a `dnf:` per-manager name override.
 
 ### Changed
 
-- The engine now **collects package-install failures** (instead of warning then
-  reporting success), **skips a hook when its owning package isn't installed**, and
-  returns a non-zero error so callers exit non-zero.
+- The package manager is now **detected by probe** (brew → apt → dnf) instead of
+  mapping GOOS → manager, so a Linux box uses whatever it actually has.
+- The engine **collects package-install failures** (instead of warning then
+  reporting success) and **skips a hook when its owning package isn't installed**,
+  returning a non-zero error so callers exit non-zero. `pkg install` shares the
+  same custom/managed split, so a custom package is never misrouted to brew/apt/dnf.
 - `link` reports partial-apply progress and the backup directory on failure, so a
   half-converged `$HOME` is recoverable.
+- **machine.yaml** and profile **packages.yaml** are written atomically (temp +
+  rename); machine.yaml is validated (`KnownFields`, profiles must exist).
+- The reconcile pipeline honors context cancellation (clean Ctrl-C).
+- CI pins goreleaser to its `~> v2` line for reproducible releases.
 
-## [0.1.2] — 2026-06-02
+### Security
 
-### Changed
-
-- CI: pin goreleaser to its `~> v2` line in the release workflow instead of
-  `version: latest`, silencing the goreleaser-action "will lock to '~> v2'"
-  warning and keeping releases reproducible.
+- `install.sh` hardened: `--proto '=https' --tlsv1.2` fetches, trap-based temp
+  cleanup, redirect-based version resolution that hard-fails rather than proceeding
+  unverified, a checksum gate that **fails closed** on a missing entry, and a cosign
+  check pinned to the exact release workflow + tag that **fails closed** when cosign
+  is present but the signature can't be fetched.
+- Releases are **cosign-signed** (keyless) over `checksums.txt`; CI/release
+  workflows **pin third-party actions to commit SHAs**; Dependabot watches GitHub
+  Actions and Go modules and bumps the pins.
+- `add` / `pkg` / `profile` validate the `--profile` name so a crafted value
+  can't write outside the `profiles/` tree.
 
 ## [0.1.1] — 2026-06-02
 
@@ -107,8 +102,6 @@ fronted by a POSIX-sh installer that converges a machine to a declarative repo.
   publishes `darwin`/`linux` × `arm64`/`amd64` binaries with checksums.
 
 [Unreleased]: https://github.com/ved0el/dotctl/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/ved0el/dotctl/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/ved0el/dotctl/compare/v0.1.2...v0.2.0
-[0.1.2]: https://github.com/ved0el/dotctl/compare/v0.1.1...v0.1.2
+[0.3.0]: https://github.com/ved0el/dotctl/compare/v0.1.1...v0.3.0
 [0.1.1]: https://github.com/ved0el/dotctl/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ved0el/dotctl/releases/tag/v0.1.0
