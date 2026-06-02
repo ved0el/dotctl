@@ -96,7 +96,9 @@ func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if p.PostInstall == "" || p.Skipped(d.Manager.Name()) {
+		// skip: gates the managed install channel, not custom hooks. For a custom
+		// package, present[p.Name] already reflects whether its install succeeded.
+		if p.PostInstall == "" || (!p.Custom() && p.Skipped(d.Manager.Name())) {
 			continue
 		}
 		if !present[p.Name] {
@@ -135,6 +137,9 @@ func InstallSet(ctx context.Context, pkgs []manifest.Package, mgr pkg.Manager, r
 	var failed []error
 
 	for _, p := range pkgs {
+		if err := ctx.Err(); err != nil {
+			return present, append(failed, err)
+		}
 		if !p.Custom() {
 			managed = append(managed, p)
 			continue
