@@ -1,11 +1,15 @@
 package pkg
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/ved0el/dotctl/internal/console"
 	"github.com/ved0el/dotctl/internal/manifest"
 )
 
@@ -194,6 +198,76 @@ func TestInstallSkipsUnsupportedManager(t *testing.T) {
 	}
 	if !strings.Contains(joined, "ripgrep") {
 		t.Errorf("ripgrep should still be installed: %q", joined)
+	}
+}
+
+func TestDryRunnerRunLogsAndSucceeds(t *testing.T) {
+	var buf bytes.Buffer
+	d := DryRunner{Log: console.New(&buf, false)}
+	if err := d.Run(context.Background(), "echo", "hi", "there"); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got := buf.String(); !strings.Contains(got, "echo hi there") {
+		t.Errorf("expected the planned command in output, got %q", got)
+	}
+}
+
+func TestDryRunnerOutputLogsAndReturnsNil(t *testing.T) {
+	var buf bytes.Buffer
+	out, err := DryRunner{Log: console.New(&buf, false)}.Output(context.Background(), "git", "status")
+	if err != nil || out != nil {
+		t.Fatalf("expected (nil, nil), got (%q, %v)", out, err)
+	}
+	if !strings.Contains(buf.String(), "git status") {
+		t.Errorf("expected the planned command in output, got %q", buf.String())
+	}
+}
+
+func TestDryRunnerHonorsContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var buf bytes.Buffer
+	d := DryRunner{Log: console.New(&buf, false)}
+	if err := d.Run(ctx, "echo", "hi"); err == nil {
+		t.Error("Run: expected a cancellation error")
+	}
+	if _, err := d.Output(ctx, "echo", "hi"); err == nil {
+		t.Error("Output: expected a cancellation error")
+	}
+	if buf.Len() != 0 {
+		t.Errorf("a cancelled dry-run must log nothing, got %q", buf.String())
+	}
+}
+
+func TestCommandExistsOnPath(t *testing.T) {
+	dir := t.TempDir()
+	const tool = "dotctl-onpath-xyz"
+	if err := os.WriteFile(filepath.Join(dir, tool), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	if !CommandExists(tool) {
+		t.Error("expected CommandExists to find a tool on PATH")
+	}
+	if CommandExists("dotctl-not-a-real-command-xyz") {
+		t.Error("expected CommandExists of a bogus name = false")
+	}
+}
+
+func TestCommandExistsFallbackLocalBin(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", t.TempDir()) // empty-ish PATH so only the ~/.local/bin fallback can match
+	bin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const tool = "dotctl-localbin-only-xyz"
+	if err := os.WriteFile(filepath.Join(bin, tool), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !CommandExists(tool) {
+		t.Error("expected CommandExists to find a tool in ~/.local/bin")
 	}
 }
 
