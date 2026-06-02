@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -18,6 +19,20 @@ func execRoot(t *testing.T, args ...string) error {
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
 	return root.ExecuteContext(context.Background())
+}
+
+// requirePkgManager skips a test when no supported package manager is on PATH.
+// Commands that build engine.Deps call pkg.Select (a real PATH probe), so without
+// this guard those tests would fail on a minimal host (e.g. bare container) rather
+// than on any real defect.
+func requirePkgManager(t *testing.T) {
+	t.Helper()
+	for _, m := range []string{"brew", "apt-get", "dnf"} {
+		if _, err := exec.LookPath(m); err == nil {
+			return
+		}
+	}
+	t.Skip("no supported package manager (brew/apt-get/dnf) on PATH")
 }
 
 func TestExecVersion(t *testing.T) {
@@ -116,6 +131,7 @@ func TestExecDoctorReportsProblems(t *testing.T) {
 // and the engine pipeline in dry-run, asserting it writes nothing. The empty base
 // profile makes installs and links no-ops, so no real side effects occur.
 func TestExecInitDryRun(t *testing.T) {
+	requirePkgManager(t)
 	home, _ := withSandbox(t)
 	if err := execRoot(t, "init", "--profiles", "base", "-n"); err != nil {
 		t.Fatalf("init --dry-run: %v", err)
@@ -126,6 +142,7 @@ func TestExecInitDryRun(t *testing.T) {
 }
 
 func TestExecApplyDryRun(t *testing.T) {
+	requirePkgManager(t)
 	home, repo := withSandbox(t)
 	saveMachine(t, home, repo, "base")
 	if err := execRoot(t, "apply", "-n"); err != nil {
@@ -141,6 +158,7 @@ func TestExecApplyRequiresBootstrap(t *testing.T) {
 }
 
 func TestExecPkgInstallEmptyIsNoop(t *testing.T) {
+	requirePkgManager(t)
 	withSandbox(t) // empty base profile → nothing to install
 	if err := execRoot(t, "pkg", "install"); err != nil {
 		t.Errorf("pkg install (empty): %v", err)

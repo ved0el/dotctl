@@ -13,6 +13,7 @@ var errFake = errors.New("fake runner error")
 
 type fakeRunner struct {
 	calls [][]string
+	out   []byte // payload returned by Output (lets tests exercise status parsing)
 	err   error
 }
 
@@ -23,7 +24,7 @@ func (f *fakeRunner) Run(_ context.Context, name string, args ...string) error {
 
 func (f *fakeRunner) Output(_ context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, append([]string{name}, args...))
-	return nil, f.err
+	return f.out, f.err
 }
 
 func TestSelectWith(t *testing.T) {
@@ -122,6 +123,52 @@ func TestBrewIsInstalledFalseOnError(t *testing.T) {
 	}
 	if ok {
 		t.Error("expected not installed when `brew list` fails")
+	}
+}
+
+func TestBrewIsInstalledQueriesByBrewName(t *testing.T) {
+	f := &fakeRunner{}
+	if _, err := (brewManager{r: f}).IsInstalled(context.Background(), manifest.Package{Name: "fd", Brew: "fd-bin"}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"brew", "list", "--versions", "fd-bin"} // uses the Brew override, not Name
+	if len(f.calls) != 1 || strings.Join(f.calls[0], " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", f.calls, want)
+	}
+}
+
+func TestAptIsInstalled(t *testing.T) {
+	tests := []struct {
+		name string
+		out  string
+		err  error
+		want bool
+	}{
+		{"installed", "install ok installed", nil, true},
+		{"config-files only", "deinstall ok config-files", nil, false},
+		{"query error means absent", "", errFake, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := &fakeRunner{out: []byte(tt.out), err: tt.err}
+			ok, err := (aptManager{r: f}).IsInstalled(context.Background(), manifest.Package{Name: "ripgrep"})
+			if err != nil {
+				t.Fatalf("IsInstalled: %v", err)
+			}
+			if ok != tt.want {
+				t.Errorf("got %v, want %v", ok, tt.want)
+			}
+		})
+	}
+}
+
+func TestDnfIsInstalled(t *testing.T) {
+	// rpm -q signals via exit code: success → installed, non-zero → absent.
+	if ok, _ := (dnfManager{r: &fakeRunner{}}).IsInstalled(context.Background(), manifest.Package{Name: "ripgrep"}); !ok {
+		t.Error("expected installed when rpm -q succeeds")
+	}
+	if ok, _ := (dnfManager{r: &fakeRunner{err: errFake}}).IsInstalled(context.Background(), manifest.Package{Name: "nope"}); ok {
+		t.Error("expected absent when rpm -q exits non-zero")
 	}
 }
 

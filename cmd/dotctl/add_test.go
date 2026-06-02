@@ -135,6 +135,14 @@ func TestRunAddRejectsNonHomePath(t *testing.T) {
 	}
 }
 
+// TestRunAddRejectsHomeItself guards against `dotctl add ~` walking all of $HOME.
+func TestRunAddRejectsHomeItself(t *testing.T) {
+	withSandbox(t)
+	if err := runAdd(&globals{}, "base", []string{"~"}); err == nil {
+		t.Error("expected error adopting $HOME itself")
+	}
+}
+
 func TestRunAddSkipsSymlink(t *testing.T) {
 	home, _ := withSandbox(t)
 	link := filepath.Join(home, ".alreadylink")

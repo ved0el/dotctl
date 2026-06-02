@@ -45,6 +45,15 @@ func TestMutateProfilesAddRejectsUnknownProfile(t *testing.T) {
 	}
 }
 
+// TestMutateProfilesRejectsTraversal: the --profile guard must also cover the
+// profile command (not just add / pkg add-rm).
+func TestMutateProfilesRejectsTraversal(t *testing.T) {
+	withSandbox(t)
+	if err := mutateProfiles(&globals{}, []string{filepath.Join("..", "evil")}, true); err == nil {
+		t.Error("expected error for a traversal profile name")
+	}
+}
+
 func TestMutateProfilesPreservesOrderAndDedups(t *testing.T) {
 	home, repo := withSandbox(t)
 	for _, p := range []string{"tools", "develop"} {

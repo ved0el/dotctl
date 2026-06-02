@@ -151,6 +151,99 @@ func TestRunCollectsInstallFailureAndSkipsDependentHook(t *testing.T) {
 	}
 }
 
+func TestRunLinksOverlayThroughOverlayLinker(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "profiles", "base"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := t.TempDir()
+	prof := &fakeLinker{}
+	ovl := &fakeLinker{}
+	if err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}, Overlay: overlay},
+		machine.Config{},
+		Deps{Linker: prof, Overlay: ovl, Manager: &fakeManager{}, Runner: &fakeRunner{}, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// The overlay must go through the ungated overlay linker, never the gated one.
+	if len(ovl.applied) != 1 || ovl.applied[0] != overlay {
+		t.Errorf("overlay linker applied = %v, want [%s]", ovl.applied, overlay)
+	}
+	for _, a := range prof.applied {
+		if a == overlay {
+			t.Error("overlay must not be applied through the gated profile linker")
+		}
+	}
+}
+
+func TestRunOverlayNilFallsBackToLinker(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "profiles", "base"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	overlay := t.TempDir()
+	fl := &fakeLinker{}
+	if err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}, Overlay: overlay},
+		machine.Config{},
+		Deps{Linker: fl, Manager: &fakeManager{}, Runner: &fakeRunner{}, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var sawOverlay bool
+	for _, a := range fl.applied {
+		if a == overlay {
+			sawOverlay = true
+		}
+	}
+	if !sawOverlay {
+		t.Errorf("a nil Overlay must fall back to Linker; applied=%v", fl.applied)
+	}
+}
+
+func TestRunCustomPackageHookIgnoresSkip(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// A custom-install package (absent → install runs) with skip:[fake] and a hook.
+	// skip gates the managed channel, so it must NOT suppress a custom package's hook.
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - name: dotctl-absent-tool-xyz\n    install: \"echo i\"\n    post_install: \"echo hook\"\n    skip: [fake]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fr := &fakeRunner{}
+	if err := Run(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: &fakeManager{}, Runner: fr, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var sawHook bool
+	for _, c := range fr.calls {
+		if strings.Contains(strings.Join(c, " "), "echo hook") {
+			sawHook = true
+		}
+	}
+	if !sawHook {
+		t.Error("a custom package's post_install hook must run even with skip set")
+	}
+}
+
+func TestInstallSetCancelledStopsEarly(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	pkgs := []manifest.Package{{Name: "a", Install: "echo a"}, {Name: "b", Install: "echo b"}}
+	fr := &fakeRunner{}
+	_, failed := InstallSet(ctx, pkgs, &fakeManager{}, fr, console.New(&bytes.Buffer{}, false))
+	if len(failed) == 0 {
+		t.Error("expected a cancellation error from InstallSet")
+	}
+	if len(fr.calls) != 0 {
+		t.Errorf("a cancelled ctx must run no installs, got %v", fr.calls)
+	}
+}
+
 func TestRunCancelled(t *testing.T) {
 	repo := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(repo, "profiles", "base"), 0o755); err != nil {

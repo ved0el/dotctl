@@ -59,16 +59,44 @@ func TestPkgMutateAddDryRunWritesNothing(t *testing.T) {
 }
 
 // TestPkgMutateAddAlreadyDeclaredIsNoop covers the fix where `pkg add` of an
-// already-declared package neither installs nor rewrites — it returns early.
+// already-declared package returns early — no rewrite, no install. We assert the
+// file is byte-identical: a stray WriteProfile would re-serialize via yaml.Marshal
+// and change the formatting, so equality proves the write path was never reached.
 func TestPkgMutateAddAlreadyDeclaredIsNoop(t *testing.T) {
 	_, repo := withSandbox(t)
-	seedPackages(t, repo, "base", "packages:\n  - git\n")
+	const seed = "packages:\n  - git\n"
+	seedPackages(t, repo, "base", seed)
+	path := filepath.Join(repo, "profiles", "base", "packages.yaml")
 
 	if err := pkgMutate(&cobra.Command{}, &globals{}, "base", []string{"git"}, true); err != nil {
 		t.Fatalf("pkgMutate add already-declared: %v", err)
 	}
-	if got := profilePkgNames(t, repo, "base"); len(got) != 1 || got[0] != "git" {
-		t.Errorf("already-declared add must be a no-op; got %v, want [git]", got)
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != seed {
+		t.Errorf("manifest must be untouched (no rewrite); got:\n%s", got)
+	}
+}
+
+// TestPkgMutateAddDryRunAllDeclared: dry-run of an all-already-declared add must
+// not write and must not emit a misleading "would add" plan (it returns early).
+func TestPkgMutateAddDryRunAllDeclared(t *testing.T) {
+	_, repo := withSandbox(t)
+	const seed = "packages:\n  - git\n"
+	seedPackages(t, repo, "base", seed)
+	path := filepath.Join(repo, "profiles", "base", "packages.yaml")
+
+	if err := pkgMutate(&cobra.Command{}, &globals{dryRun: true}, "base", []string{"git"}, true); err != nil {
+		t.Fatalf("dry-run add already-declared: %v", err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != seed {
+		t.Errorf("dry-run must not write; got:\n%s", got)
 	}
 }
 
