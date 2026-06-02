@@ -28,6 +28,17 @@ func (m brewManager) Install(ctx context.Context, pkgs []manifest.Package) error
 	return nil
 }
 
+func (m brewManager) Upgrade(ctx context.Context, pkgs []manifest.Package) error {
+	names := pkgNames(supported(pkgs, "brew"), func(p manifest.Package) string { return p.Brew })
+	if len(names) == 0 {
+		return nil
+	}
+	if err := m.r.Run(ctx, "brew", append([]string{"upgrade"}, names...)...); err != nil {
+		return fmt.Errorf("brew upgrade: %w", err)
+	}
+	return nil
+}
+
 func (m brewManager) IsInstalled(ctx context.Context, p manifest.Package) (bool, error) {
 	if p.Skipped("brew") {
 		return true, nil // not managed here

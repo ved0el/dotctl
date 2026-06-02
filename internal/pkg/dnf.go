@@ -33,6 +33,21 @@ func (m dnfManager) Install(ctx context.Context, pkgs []manifest.Package) error 
 	return nil
 }
 
+func (m dnfManager) Upgrade(ctx context.Context, pkgs []manifest.Package) error {
+	names := pkgNames(supported(pkgs, "dnf"), func(p manifest.Package) string { return p.Dnf })
+	if len(names) == 0 {
+		return nil
+	}
+	name, args := "dnf", append([]string{"upgrade", "-y"}, names...)
+	if os.Geteuid() != 0 {
+		name, args = "sudo", append([]string{"dnf", "upgrade", "-y"}, names...)
+	}
+	if err := m.r.Run(ctx, name, args...); err != nil {
+		return fmt.Errorf("dnf upgrade: %w", err)
+	}
+	return nil
+}
+
 func (m dnfManager) IsInstalled(ctx context.Context, p manifest.Package) (bool, error) {
 	if p.Skipped("dnf") {
 		return true, nil

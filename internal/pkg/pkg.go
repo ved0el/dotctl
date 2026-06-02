@@ -34,6 +34,10 @@ type Manager interface {
 	Name() string
 	Available() bool
 	Install(ctx context.Context, pkgs []manifest.Package) error
+	// Upgrade brings the given (already-installed) packages to their latest
+	// versions. Callers pass only installed packages so the manager need not
+	// special-case absent ones.
+	Upgrade(ctx context.Context, pkgs []manifest.Package) error
 	// IsInstalled reports whether a package is present, resolving the same
 	// per-manager name as Install. A non-zero manager exit is treated as
 	// "not installed" rather than an error.

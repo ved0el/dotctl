@@ -16,6 +16,7 @@ import (
 
 type fakeManager struct {
 	installed   []manifest.Package
+	upgraded    []manifest.Package
 	installErr  error // returned by Install (simulates a batch failure)
 	installedOK bool  // value IsInstalled reports
 }
@@ -24,6 +25,10 @@ func (f *fakeManager) Name() string    { return "fake" }
 func (f *fakeManager) Available() bool { return true }
 func (f *fakeManager) Install(_ context.Context, pkgs []manifest.Package) error {
 	f.installed = append(f.installed, pkgs...)
+	return f.installErr
+}
+func (f *fakeManager) Upgrade(_ context.Context, pkgs []manifest.Package) error {
+	f.upgraded = append(f.upgraded, pkgs...)
 	return f.installErr
 }
 func (f *fakeManager) IsInstalled(_ context.Context, _ manifest.Package) (bool, error) {
@@ -241,6 +246,68 @@ func TestInstallSetCancelledStopsEarly(t *testing.T) {
 	}
 	if len(fr.calls) != 0 {
 		t.Errorf("a cancelled ctx must run no installs, got %v", fr.calls)
+	}
+}
+
+func TestUpgrade(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"),
+		[]byte("packages:\n  - git\n  - name: dotctl-absent-xyz\n    install: \"echo i\"\n    post_install: \"echo hook\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fm := &fakeManager{installedOK: true}
+	fr := &fakeRunner{}
+	if err := Upgrade(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: fm, Runner: fr, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Upgrade: %v", err)
+	}
+	// git is managed + installed → upgraded via the manager.
+	if len(fm.upgraded) != 1 || fm.upgraded[0].Name != "git" {
+		t.Errorf("expected git upgraded, got %+v", fm.upgraded)
+	}
+	// the custom tool refreshes by re-running its installer, and its hook runs.
+	var sawInstall, sawHook bool
+	for _, c := range fr.calls {
+		j := strings.Join(c, " ")
+		if strings.Contains(j, "echo i") {
+			sawInstall = true
+		}
+		if strings.Contains(j, "echo hook") {
+			sawHook = true
+		}
+	}
+	if !sawInstall {
+		t.Error("custom upgrade should re-run the installer")
+	}
+	if !sawHook {
+		t.Error("post_install hook should run after upgrade")
+	}
+}
+
+func TestUpgradeSkipsNotInstalledManaged(t *testing.T) {
+	repo := t.TempDir()
+	base := filepath.Join(repo, "profiles", "base")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(base, "packages.yaml"), []byte("packages:\n  - git\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fm := &fakeManager{installedOK: false} // git reports not installed
+	if err := Upgrade(context.Background(),
+		Options{Repo: repo, Profiles: []string{"base"}},
+		machine.Config{},
+		Deps{Linker: &fakeLinker{}, Manager: fm, Runner: &fakeRunner{}, Log: console.New(&bytes.Buffer{}, false)}); err != nil {
+		t.Fatalf("Upgrade: %v", err)
+	}
+	if len(fm.upgraded) != 0 {
+		t.Errorf("a not-installed package must not be upgraded, got %+v", fm.upgraded)
 	}
 }
 

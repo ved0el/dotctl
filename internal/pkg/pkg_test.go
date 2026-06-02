@@ -110,6 +110,49 @@ func TestAptInstallUsesOverride(t *testing.T) {
 	}
 }
 
+func TestBrewUpgradeArgs(t *testing.T) {
+	f := &fakeRunner{}
+	if err := (brewManager{r: f}).Upgrade(context.Background(), []manifest.Package{{Name: "ripgrep"}, {Name: "fd", Brew: "fd"}}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"brew", "upgrade", "ripgrep", "fd"}
+	if len(f.calls) != 1 || strings.Join(f.calls[0], " ") != strings.Join(want, " ") {
+		t.Errorf("got %v, want %v", f.calls, want)
+	}
+}
+
+func TestAptUpgradeUsesOnlyUpgrade(t *testing.T) {
+	f := &fakeRunner{}
+	if err := (aptManager{r: f}).Upgrade(context.Background(), []manifest.Package{{Name: "fd", Apt: "fd-find"}}); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(f.calls[0], " ")
+	if !strings.Contains(joined, "--only-upgrade") || !strings.Contains(joined, "fd-find") {
+		t.Errorf("apt upgrade should use --only-upgrade with the override name: %q", joined)
+	}
+}
+
+func TestDnfUpgradeUsesOverride(t *testing.T) {
+	f := &fakeRunner{}
+	if err := (dnfManager{r: f}).Upgrade(context.Background(), []manifest.Package{{Name: "fd", Dnf: "fd-find"}}); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(f.calls[0], " ")
+	if !strings.Contains(joined, "upgrade") || !strings.Contains(joined, "fd-find") {
+		t.Errorf("dnf upgrade should upgrade the override name: %q", joined)
+	}
+}
+
+func TestUpgradeEmptyNoCall(t *testing.T) {
+	f := &fakeRunner{}
+	if err := (brewManager{r: f}).Upgrade(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("empty upgrade should not call the runner, got %v", f.calls)
+	}
+}
+
 func TestBrewIsInstalled(t *testing.T) {
 	ok, err := (brewManager{r: &fakeRunner{}}).IsInstalled(context.Background(), manifest.Package{Name: "ripgrep"})
 	if err != nil {

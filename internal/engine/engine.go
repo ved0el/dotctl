@@ -63,7 +63,30 @@ func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
 	// Install packages (custom-install scripts + the managed batch). present maps
 	// each package name to whether its tool ended up installed, gating hooks below.
 	present, failed := InstallSet(ctx, pkgs, d.Manager, d.Runner, d.Log)
+	return finish(ctx, opts, profileRoot, d, pkgs, present, failed)
+}
 
+// Upgrade brings installed packages to their latest versions, then links and runs
+// hooks. It is Run with a different package phase (UpgradeSet instead of
+// InstallSet) and the same link+hooks tail — so a `dotctl upgrade` still converges
+// dotfiles and re-runs plugin hooks (e.g. `mise install`, `sheldon lock`).
+func Upgrade(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	profileRoot := filepath.Join(opts.Repo, machine.ProfilesSubdir)
+	pkgs, err := machine.ResolvePackages(profileRoot, opts.Profiles, cfg)
+	if err != nil {
+		return fmt.Errorf("resolve packages: %w", err)
+	}
+	present, failed := UpgradeSet(ctx, pkgs, d.Manager, d.Runner, d.Log)
+	return finish(ctx, opts, profileRoot, d, pkgs, present, failed)
+}
+
+// finish is the shared tail of Run and Upgrade: link each profile, then the
+// machine-local overlay (ungated, wins on conflict), then run each present
+// package's post_install hook. Collected failures are returned joined.
+func finish(ctx context.Context, opts Options, profileRoot string, d Deps, pkgs []manifest.Package, present map[string]bool, failed []error) error {
 	// Link dotfiles before hooks so plugin managers (sheldon, tmux/TPM, mise)
 	// see their config in place when their post_install hook fires.
 	for _, profile := range opts.Profiles {
@@ -96,8 +119,8 @@ func Run(ctx context.Context, opts Options, cfg machine.Config, d Deps) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		// skip: gates the managed install channel, not custom hooks. For a custom
-		// package, present[p.Name] already reflects whether its install succeeded.
+		// skip: gates the managed channel, not custom hooks. present[p.Name]
+		// already reflects whether the package is actually there.
 		if p.PostInstall == "" || (!p.Custom() && p.Skipped(d.Manager.Name())) {
 			continue
 		}
@@ -177,6 +200,53 @@ func InstallSet(ctx context.Context, pkgs []manifest.Package, mgr pkg.Manager, r
 		}
 		ok, _ := mgr.IsInstalled(ctx, p)
 		present[p.Name] = ok
+	}
+	return present, failed
+}
+
+// UpgradeSet upgrades installed packages to their latest versions, mirroring
+// InstallSet's shape. Managed packages are upgraded as one batch — but only the
+// ones actually installed (probed via IsInstalled), so the manager never has to
+// special-case an absent package. Custom-install tools (sheldon, mise) self-manage,
+// so they're refreshed by re-running their installer. Returns the presence map
+// (for hook gating) and collected failures.
+func UpgradeSet(ctx context.Context, pkgs []manifest.Package, mgr pkg.Manager, runner pkg.Runner, log *console.Logger) (map[string]bool, []error) {
+	present := map[string]bool{}
+	var installed []manifest.Package
+	var failed []error
+
+	for _, p := range pkgs {
+		if err := ctx.Err(); err != nil {
+			return present, append(failed, err)
+		}
+		if p.Custom() {
+			log.Step("upgrading %s (custom)", p.Name)
+			if err := runner.Run(ctx, "sh", "-c", localBinPath+p.Install); err != nil {
+				log.Warn("upgrade %q failed: %v", p.Name, err)
+				failed = append(failed, fmt.Errorf("upgrade %s: %w", p.Name, err))
+			} else {
+				present[p.Name] = true
+			}
+			continue
+		}
+		ok, _ := mgr.IsInstalled(ctx, p)
+		present[p.Name] = ok
+		if ok {
+			installed = append(installed, p)
+		} else {
+			log.Debug("skip %s (not installed; run 'dotctl pkg install' first)", p.Name)
+		}
+	}
+
+	if len(installed) > 0 {
+		if !mgr.Available() {
+			log.Warn("%s not found on PATH; upgrades may fail", mgr.Name())
+		}
+		log.Step("upgrading %d package(s) via %s", len(installed), mgr.Name())
+		if err := mgr.Upgrade(ctx, installed); err != nil {
+			log.Warn("%s upgrade reported errors: %v", mgr.Name(), err)
+			failed = append(failed, fmt.Errorf("%s upgrade: %w", mgr.Name(), err))
+		}
 	}
 	return present, failed
 }

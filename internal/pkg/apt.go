@@ -35,6 +35,22 @@ func (m aptManager) Install(ctx context.Context, pkgs []manifest.Package) error 
 	return nil
 }
 
+func (m aptManager) Upgrade(ctx context.Context, pkgs []manifest.Package) error {
+	names := pkgNames(supported(pkgs, "apt"), func(p manifest.Package) string { return p.Apt })
+	if len(names) == 0 {
+		return nil
+	}
+	// --only-upgrade upgrades the named packages without installing new ones.
+	name, args := "apt-get", append([]string{"install", "--only-upgrade", "-y"}, names...)
+	if os.Geteuid() != 0 {
+		name, args = "sudo", append([]string{"apt-get", "install", "--only-upgrade", "-y"}, names...)
+	}
+	if err := m.r.Run(ctx, name, args...); err != nil {
+		return fmt.Errorf("apt-get upgrade: %w", err)
+	}
+	return nil
+}
+
 func (m aptManager) IsInstalled(ctx context.Context, p manifest.Package) (bool, error) {
 	if p.Skipped("apt") {
 		return true, nil // not managed here
