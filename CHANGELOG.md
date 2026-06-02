@@ -11,6 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`dotctl edit <name>`** — open a managed dotfile by its logical name (e.g.
   `zshrc`, or a leaf basename like `tools.toml`) in `$EDITOR`, resolved through the
   link convention; edits land on the repo source, ready to `save`.
+- **`dotctl upgrade`** — upgrade installed packages to their latest versions
+  (managed via the platform manager, but only those actually installed;
+  sheldon/mise refresh themselves), then re-link and re-run hooks. Distinct from
+  `sync`: it upgrades package versions and does not `git pull`.
 
 ### Changed
 

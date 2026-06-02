@@ -80,6 +80,7 @@ clones the repo to `~/.dotfiles`, downloads the matching `dotctl` binary, and ru
 | `dotctl edit <name>` | Open a managed dotfile by its logical name (e.g. `zshrc`) in `$EDITOR`. |
 | `dotctl sync` | `git pull` the repo, then re-converge. |
 | `dotctl save -m "…"` | Commit and push your dotfiles changes. |
+| `dotctl upgrade` | Upgrade installed packages to their latest versions, then re-apply. |
 | `dotctl doctor` | Diagnose environment problems (PATH, package manager, broken links). |
 | `dotctl profile ls\|add\|rm` | Manage this machine's profiles. |
 | `dotctl pkg install\|add\|rm` | Manage packages (add/rm mutate a profile's manifest). |

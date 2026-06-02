@@ -157,6 +157,22 @@ func TestExecApplyRequiresBootstrap(t *testing.T) {
 	}
 }
 
+func TestExecUpgradeRequiresBootstrap(t *testing.T) {
+	withSandbox(t) // no machine.yaml written
+	if err := execRoot(t, "upgrade"); err == nil {
+		t.Error("expected upgrade to refuse on an unbootstrapped machine")
+	}
+}
+
+func TestExecUpgradeDryRun(t *testing.T) {
+	requirePkgManager(t)
+	home, repo := withSandbox(t)
+	saveMachine(t, home, repo, "base")
+	if err := execRoot(t, "upgrade", "-n"); err != nil {
+		t.Errorf("upgrade --dry-run: %v", err)
+	}
+}
+
 func TestExecPkgInstallEmptyIsNoop(t *testing.T) {
 	requirePkgManager(t)
 	withSandbox(t) // empty base profile → nothing to install
