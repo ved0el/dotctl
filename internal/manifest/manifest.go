@@ -133,9 +133,24 @@ func WriteProfile(profileDir string, pkgs []Package) error {
 	if err != nil {
 		return fmt.Errorf("marshal packages: %w", err)
 	}
-	path := filepath.Join(profileDir, "packages.yaml")
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("write %s: %w", path, err)
+	// Atomic write (temp in the same dir + rename) so a crash mid-write can't
+	// truncate the manifest and make the profile unreadable — mirroring machine.Save.
+	final := filepath.Join(profileDir, "packages.yaml")
+	tmp, err := os.CreateTemp(profileDir, "packages.yaml.*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp manifest: %w", err)
+	}
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }() // no-op once renamed
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp manifest: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp manifest: %w", err)
+	}
+	if err := os.Rename(tmpName, final); err != nil {
+		return fmt.Errorf("replace manifest: %w", err)
 	}
 	return nil
 }
