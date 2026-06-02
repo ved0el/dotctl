@@ -78,6 +78,9 @@ func homeRel(home, abs string) (string, error) {
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return "", fmt.Errorf("%s is not under %s", abs, home)
 	}
+	if rel == "." {
+		return "", fmt.Errorf("%s is $HOME itself — refusing to adopt the entire home directory", abs)
+	}
 	if !strings.HasPrefix(rel, ".") {
 		return "", fmt.Errorf("%s is not a dotfile (no leading dot)", abs)
 	}
@@ -113,6 +116,10 @@ func adoptDir(g *globals, log *console.Logger, dir, home, profileDir string) err
 	if err != nil {
 		return fmt.Errorf("walk %s: %w", dir, err)
 	}
+	if len(leaves) == 0 {
+		log.Warn("no regular files to adopt under %s (empty, or already symlinked)", dir)
+		return nil
+	}
 	for _, leaf := range leaves {
 		rel, err := homeRel(home, leaf)
 		if err != nil {
@@ -142,7 +149,12 @@ func adoptFile(g *globals, log *console.Logger, abs, dest string) error {
 		return fmt.Errorf("move %s into repo (must be on the same filesystem): %w", abs, err)
 	}
 	if err := os.Symlink(dest, abs); err != nil {
-		return fmt.Errorf("symlink %s (the original is now at %s): %w", abs, dest, err)
+		// The move succeeded but the symlink didn't: roll the file back so $HOME
+		// isn't left missing it (never-clobber also means never silently lose).
+		if rbErr := os.Rename(dest, abs); rbErr != nil {
+			return fmt.Errorf("symlink %s failed and the original could not be restored from %s: %v (symlink error: %w)", abs, dest, rbErr, err)
+		}
+		return fmt.Errorf("symlink %s: %w", abs, err)
 	}
 	log.OK("adopted %s → %s", abs, dest)
 	return nil

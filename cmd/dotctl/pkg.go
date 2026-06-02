@@ -104,20 +104,20 @@ func pkgMutate(cmd *cobra.Command, g *globals, profile string, names []string, a
 			pkgs = append(pkgs, p)
 			added = append(added, p)
 		}
-		if g.dryRun {
-			log.Plan("add packages", fmt.Sprintf("%v → %s", names, profile))
-			return nil
-		}
 		if len(added) == 0 {
 			log.OK("all of %v already declared in %s — nothing to do", names, profile)
 			return nil
 		}
-		if err := manifest.WriteProfile(profileDir, pkgs); err != nil {
-			return err
-		}
 		addedNames := make([]string, len(added))
 		for i, p := range added {
 			addedNames[i] = p.Name
+		}
+		if g.dryRun {
+			log.Plan("add packages", fmt.Sprintf("%v → %s", addedNames, profile))
+			return nil
+		}
+		if err := manifest.WriteProfile(profileDir, pkgs); err != nil {
+			return err
 		}
 		log.OK("added %v to %s", addedNames, profile)
 		mgr, err := pkg.Select(g.newRunner(log))

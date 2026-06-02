@@ -57,7 +57,10 @@ func newSaveCmd(g *globals) *cobra.Command {
 			if err := runner.Run(cmd.Context(), "git", "-C", cx.Repo, "add", "-A"); err != nil {
 				return fmt.Errorf("git add: %w", err)
 			}
-			out, _ := runner.Output(cmd.Context(), "git", "-C", cx.Repo, "status", "--porcelain")
+			out, err := runner.Output(cmd.Context(), "git", "-C", cx.Repo, "status", "--porcelain")
+			if err != nil {
+				return fmt.Errorf("git status: %w", err)
+			}
 			if strings.TrimSpace(string(out)) == "" {
 				log.OK("nothing to save — working tree is clean")
 				return nil

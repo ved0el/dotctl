@@ -49,6 +49,11 @@ func mutateProfiles(g *globals, names []string, add bool) error {
 	if err != nil {
 		return err
 	}
+	for _, n := range names {
+		if err := validateProfileName(n); err != nil {
+			return err
+		}
+	}
 	set := map[string]bool{}
 	for _, p := range cx.Cfg.Profiles {
 		set[p] = true
